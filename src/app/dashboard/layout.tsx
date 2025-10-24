@@ -39,11 +39,14 @@ export default async function DashboardLayout({
 
     if (insertError || !newMember) {
       console.error("Error creating member profile:", insertError);
-      return redirect('/login?error=Could not create user profile.');
+      // It's better to show an error page or message than to redirect to login with a generic error
+      return redirect(`/login?error=${insertError?.message ?? 'Could not create user profile.'}`);
     }
     memberProfile = newMember;
-    revalidatePath('/dashboard');
-    redirect('/dashboard?new=true');
+    // Revalidate the path to ensure new data is fetched.
+    revalidatePath('/dashboard', 'layout');
+    // Redirect to the profile page for the new user to complete their profile.
+    return redirect('/dashboard?new=true');
   }
 
   const fullProfile: FullUserProfile = {
