@@ -43,9 +43,8 @@ export default async function DashboardLayout({
       return redirect(`/login?error=${insertError?.message ?? 'Could not create user profile.'}`);
     }
     memberProfile = newMember;
-    // Revalidate the path to ensure new data is fetched.
-    revalidatePath('/dashboard', 'layout');
-    // Redirect to the profile page for the new user to complete their profile.
+    // The redirect below is sufficient to trigger a re-render with the new profile data.
+    // revalidatePath('/dashboard', 'layout'); // This was causing the error.
     return redirect('/dashboard?new=true');
   }
 
