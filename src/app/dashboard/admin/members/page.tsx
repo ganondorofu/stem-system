@@ -42,8 +42,8 @@ export default async function MemberManagementPage() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Member Management</CardTitle>
-                <CardDescription>Manage all club members, their roles, and status.</CardDescription>
+                <CardTitle>メンバー管理</CardTitle>
+                <CardDescription>すべての部員のロールとステータスを管理します。</CardDescription>
             </CardHeader>
             <CardContent>
                 <MemberManagementClient initialMembers={profiles} allTeams={teams} />

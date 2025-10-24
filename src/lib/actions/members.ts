@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 const profileSchema = z.object({
-    generation: z.coerce.number().int().min(0, 'Generation must be a non-negative number.'),
+    generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
 });
@@ -15,12 +15,12 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { error: 'You must be logged in to update your profile.' };
+        return { error: 'プロフィールを更新するにはログインする必要があります。' };
     }
 
     const parsedData = profileSchema.safeParse(values);
     if (!parsedData.success) {
-        return { error: 'Invalid data provided.' };
+        return { error: '無効なデータが提供されました。' };
     }
 
     const { error } = await supabase
@@ -34,7 +34,7 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
 
     if (error) {
         console.error('Error updating profile:', error);
-        return { error: 'Failed to update profile. Please try again.' };
+        return { error: 'プロフィールの更新に失敗しました。もう一度お試しください。' };
     }
 
     revalidatePath('/dashboard', 'layout');
@@ -46,12 +46,12 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { error: 'Authentication required.' };
+        return { error: '認証が必要です。' };
     }
 
     const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
     if (!admin?.is_admin) {
-        return { error: 'Administrator privileges required.' };
+        return { error: '管理者権限が必要です。' };
     }
 
     const { error } = await supabase
@@ -61,7 +61,7 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 
     if (error) {
         console.error('Error updating member by admin:', error);
-        return { error: 'Failed to update member.' };
+        return { error: 'メンバーの更新に失敗しました。' };
     }
 
     revalidatePath('/dashboard/admin/members');
@@ -73,16 +73,16 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { error: 'Authentication required.' };
+        return { error: '認証が必要です。' };
     }
 
     const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
     if (!admin?.is_admin) {
-        return { error: 'Administrator privileges required.' };
+        return { error: '管理者権限が必要です。' };
     }
 
      if (user.id === userId) {
-        return { error: "Cannot change your own admin status." };
+        return { error: "自身の管理者ステータスは変更できません。" };
     }
 
     const { error } = await supabase
@@ -91,7 +91,7 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
         .eq('supabase_auth_user_id', userId);
     
     if (error) {
-        return { error: 'Failed to update admin status.' };
+        return { error: '管理者ステータスの更新に失敗しました。' };
     }
 
     revalidatePath('/dashboard/admin/members');
@@ -103,16 +103,16 @@ export async function deleteMember(userId: string) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { error: 'Authentication required.' };
+        return { error: '認証が必要です。' };
     }
 
     const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
     if (!admin?.is_admin) {
-        return { error: 'Administrator privileges required.' };
+        return { error: '管理者権限が必要です。' };
     }
 
     if (user.id === userId) {
-        return { error: "Cannot delete yourself." };
+        return { error: "自分自身を削除することはできません。" };
     }
 
     const { error } = await supabase
@@ -121,7 +121,7 @@ export async function deleteMember(userId: string) {
         .eq('supabase_auth_user_id', userId);
 
     if (error) {
-        return { error: 'Failed to delete member.' };
+        return { error: 'メンバーの削除に失敗しました。' };
     }
 
     revalidatePath('/dashboard/admin/members');

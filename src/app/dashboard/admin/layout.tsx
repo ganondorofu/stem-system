@@ -26,9 +26,9 @@ export default async function AdminLayout({
         <div className="flex items-center justify-center h-full">
             <Alert variant="destructive" className="max-w-md">
                 <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>Access Denied</AlertTitle>
+                <AlertTitle>アクセスが拒否されました</AlertTitle>
                 <AlertDescription>
-                You do not have permission to access this page. This section is for administrators only.
+                このページにアクセスする権限がありません。このセクションは管理者専用です。
                 </AlertDescription>
             </Alert>
         </div>

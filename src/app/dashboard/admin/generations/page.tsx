@@ -19,9 +19,9 @@ export default async function GenerationManagementPage() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Generation Role Management</CardTitle>
+                <CardTitle>期別ロール管理</CardTitle>
                 <CardDescription>
-                    Map each generation to its corresponding Discord Role ID. This is used for automated role assignments.
+                    各期とDiscordロールIDを紐付けます。これはロールの自動割り当てに使用されます。
                 </CardDescription>
             </CardHeader>
             <CardContent>

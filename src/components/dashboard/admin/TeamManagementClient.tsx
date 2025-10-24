@@ -18,8 +18,8 @@ import { createTeam, deleteTeam, updateTeam } from '@/lib/actions/teams';
 
 const teamSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, 'Team name is required.'),
-  discord_role_id: z.string().min(1, 'Discord Role ID is required.'),
+  name: z.string().min(1, '班の名前は必須です。'),
+  discord_role_id: z.string().min(1, 'DiscordロールIDは必須です。'),
 });
 
 type TeamFormData = z.infer<typeof teamSchema>;
@@ -55,9 +55,9 @@ export function TeamManagementClient({
     const result = await action(data);
 
     if (result.error) {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      toast({ title: 'エラー', description: result.error, variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: `Team ${editingTeam ? 'updated' : 'created'} successfully.` });
+      toast({ title: '成功', description: `班が${editingTeam ? '更新' : '作成'}されました。` });
       if (result.team) {
         if (editingTeam) {
           setTeams(teams.map(t => t.id === result.team!.id ? result.team! : t));
@@ -70,12 +70,12 @@ export function TeamManagementClient({
   };
 
   const handleDelete = async (teamId: string) => {
-    if (confirm('Are you sure you want to delete this team? This cannot be undone.')) {
+    if (confirm('本当にこの班を削除しますか？この操作は元に戻せません。')) {
         const result = await deleteTeam(teamId);
         if (result.error) {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+            toast({ title: 'エラー', description: result.error, variant: 'destructive' });
         } else {
-            toast({ title: 'Success', description: 'Team deleted.' });
+            toast({ title: '成功', description: '班を削除しました。' });
             setTeams(teams.filter(t => t.id !== teamId));
         }
     }
@@ -87,7 +87,7 @@ export function TeamManagementClient({
       <div className="flex justify-end">
         <Button onClick={() => handleOpenDialog(null)}>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Create Team
+          班を作成
         </Button>
       </div>
 
@@ -104,9 +104,9 @@ export function TeamManagementClient({
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-              <p className="text-muted-foreground mb-4">Discord Role ID: {team.discord_role_id}</p>
+              <p className="text-muted-foreground mb-4">Discord ロール ID: {team.discord_role_id}</p>
               {/* Member and leader management UI would go here */}
-              <p className="text-sm text-muted-foreground p-4 bg-muted rounded-md">Member and leader assignment functionality is under development.</p>
+              <p className="text-sm text-muted-foreground p-4 bg-muted rounded-md">メンバーと班長の割り当て機能は開発中です。</p>
             </AccordionContent>
           </AccordionItem>
         ))}
@@ -115,9 +115,9 @@ export function TeamManagementClient({
       <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTeam ? 'Edit Team' : 'Create New Team'}</DialogTitle>
+            <DialogTitle>{editingTeam ? '班を編集' : '新しい班を作成'}</DialogTitle>
             <DialogDescription>
-              Fill in the details for the team.
+              班の詳細情報を入力してください。
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -127,9 +127,9 @@ export function TeamManagementClient({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Team Name</FormLabel>
+                    <FormLabel>班の名前</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Frontend Team" {...field} />
+                      <Input placeholder="例: フロントエンド班" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -140,18 +140,18 @@ export function TeamManagementClient({
                 name="discord_role_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Discord Role ID</FormLabel>
+                    <FormLabel>Discord ロールID</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 123456789012345678" {...field} />
+                      <Input placeholder="例: 123456789012345678" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>キャンセル</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? 'Saving...' : 'Save'}
+                  {form.formState.isSubmitting ? '保存中...' : '保存'}
                 </Button>
               </DialogFooter>
             </form>

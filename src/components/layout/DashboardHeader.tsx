@@ -10,10 +10,10 @@ import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const navItems = [
-  { href: '/dashboard', label: 'My Profile', icon: Home, admin: false },
-  { href: '/dashboard/admin/members', label: 'Member Management', icon: Users, admin: true },
-  { href: '/dashboard/admin/teams', label: 'Team Management', icon: Shield, admin: true },
-  { href: '/dashboard/admin/generations', label: 'Generation Roles', icon: BookMarked, admin: true },
+  { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
+  { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
+  { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
+  { href: '/dashboard/admin/generations', label: '期別ロール管理', icon: BookMarked, admin: true },
 ];
 
 export default function DashboardHeader({ user }: { user: FullUserProfile }) {
@@ -31,14 +31,14 @@ export default function DashboardHeader({ user }: { user: FullUserProfile }) {
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0">
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
+            <span className="sr-only">ナビゲーションメニューを開閉</span>
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="flex flex-col">
           <nav className="grid gap-2 text-lg font-medium">
             <Link href="#" className="flex items-center gap-2 text-lg font-semibold mb-4">
               <Club className="h-6 w-6 text-primary" />
-              <span className="sr-only">Clubhouse</span>
+              <span className="sr-only">STEM研究部</span>
             </Link>
             {navItems.map((item) => {
               if (item.admin && !user.is_admin) return null;
@@ -65,12 +65,12 @@ export default function DashboardHeader({ user }: { user: FullUserProfile }) {
               </Avatar>
               <div className="flex flex-col">
                 <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
-                <p className="text-xs text-muted-foreground">{user.is_admin ? 'Administrator' : 'Member'}</p>
+                <p className="text-xs text-muted-foreground">{user.is_admin ? '管理者' : 'メンバー'}</p>
               </div>
             </div>
             <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              Logout
+              ログアウト
             </Button>
           </div>
         </SheetContent>

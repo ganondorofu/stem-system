@@ -36,16 +36,16 @@ export default async function ProfilePage({ searchParams }: { searchParams: { ne
             {isNewUser && (
                 <Alert className="bg-accent/30 border-accent/50">
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Welcome to Clubhouse Manager!</AlertTitle>
+                    <AlertTitle>STEM研究部へようこそ！</AlertTitle>
                     <AlertDescription>
-                        Please complete your profile information below.
+                        最初にプロフィール情報を入力してください。
                     </AlertDescription>
                 </Alert>
             )}
             <Card>
                 <CardHeader>
-                    <CardTitle>My Profile</CardTitle>
-                    <CardDescription>View and edit your personal information. This information is visible to other club members.</CardDescription>
+                    <CardTitle>マイプロフィール</CardTitle>
+                    <CardDescription>個人情報を表示・編集します。この情報は他の部員にも表示されます。</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <UserProfileForm user={fullProfile} />

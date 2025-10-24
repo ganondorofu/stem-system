@@ -58,7 +58,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
 
-  const statusMap = { 0: "Middle", 1: "High", 2: "Alumni" }
+  const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
   const handleAction = async () => {
     if (!selectedMember) return
@@ -76,8 +76,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     }
 
     toast({
-      title: result.error ? "Error" : "Success",
-      description: result.error || "Action completed successfully.",
+      title: result.error ? "エラー" : "成功",
+      description: result.error || "操作が正常に完了しました。",
       variant: result.error ? "destructive" : "default",
     })
     
@@ -90,14 +90,14 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       accessorKey: "generation",
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Gen
+          期
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
     },
     {
       accessorKey: "student_number",
-      header: "Student No.",
+      header: "学籍番号",
     },
     {
       accessorKey: "discord_uid",
@@ -105,13 +105,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     },
     {
       accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => statusMap[row.original.status as keyof typeof statusMap] || "Unknown",
+      header: "ステータス",
+      cell: ({ row }) => statusMap[row.original.status as keyof typeof statusMap] || "不明",
     },
     {
       accessorKey: "is_admin",
-      header: "Role",
-      cell: ({ row }) => row.original.is_admin ? <Badge variant="destructive">Admin</Badge> : <Badge variant="secondary">Member</Badge>,
+      header: "権限",
+      cell: ({ row }) => row.original.is_admin ? <Badge variant="destructive">管理者</Badge> : <Badge variant="secondary">メンバー</Badge>,
     },
     {
       id: "actions",
@@ -121,18 +121,18 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
+                <span className="sr-only">メニューを開く</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuLabel>操作</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => {
                 setSelectedMember(member)
                 setAlertAction("toggleAdmin")
                 setIsAlertOpen(true)
               }}>
-                {member.is_admin ? "Revoke Admin" : "Make Admin"}
+                {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => {
@@ -140,7 +140,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 setAlertAction("delete")
                 setIsAlertOpen(true)
               }}>
-                Delete Member
+                メンバーを削除
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -168,7 +168,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter by Discord UID..."
+          placeholder="Discord UIDで絞り込み..."
           value={(table.getColumn("discord_uid")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("discord_uid")?.setFilterValue(event.target.value)
@@ -213,7 +213,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  結果がありません。
                 </TableCell>
               </TableRow>
             )}
@@ -227,7 +227,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Previous
+          前へ
         </Button>
         <Button
           variant="outline"
@@ -235,24 +235,24 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Next
+          次へ
         </Button>
       </div>
        <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>本当によろしいですか？</AlertDialogTitle>
             <AlertDialogDescription>
               {alertAction === 'delete'
-                ? `This will soft-delete the member. They will be marked as 'deleted' and lose access. This action can be reversed in the database.`
-                : `This will ${selectedMember?.is_admin ? 'revoke' : 'grant'} admin privileges for this user.`
+                ? `これによりメンバーがソフトデリートされます。メンバーは「削除済み」としてマークされ、アクセスできなくなります。この操作はデータベース内で元に戻すことができます。`
+                : `これにより、このユーザーの管理者権限が${selectedMember?.is_admin ? '取り消され' : '付与され'}ます。`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
             <AlertDialogAction onClick={handleAction} className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}>
-              Continue
+              続行
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

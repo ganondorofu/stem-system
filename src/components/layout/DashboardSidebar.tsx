@@ -10,10 +10,10 @@ import { Club, LogOut, User, Users, Shield, BookMarked, Home, Settings } from 'l
 import { Separator } from '../ui/separator';
 
 const navItems = [
-  { href: '/dashboard', label: 'My Profile', icon: Home, admin: false },
-  { href: '/dashboard/admin/members', label: 'Members', icon: Users, admin: true },
-  { href: '/dashboard/admin/teams', label: 'Teams', icon: Shield, admin: true },
-  { href: '/dashboard/admin/generations', label: 'Generations', icon: BookMarked, admin: true },
+  { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
+  { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
+  { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
+  { href: '/dashboard/admin/generations', label: '期別ロール', icon: BookMarked, admin: true },
 ];
 
 export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
@@ -31,7 +31,7 @@ export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Club className="h-6 w-6 text-primary" />
-            <span className="font-headline">Clubhouse</span>
+            <span className="font-headline">STEM研究部</span>
           </Link>
         </div>
         <div className="flex-1">
@@ -63,12 +63,12 @@ export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
               </Avatar>
               <div className="flex flex-col">
                 <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
-                <p className="text-xs text-muted-foreground">{user.is_admin ? 'Administrator' : 'Member'}</p>
+                <p className="text-xs text-muted-foreground">{user.is_admin ? '管理者' : 'メンバー'}</p>
               </div>
             </div>
           <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            ログアウト
           </Button>
         </div>
       </div>

@@ -7,17 +7,17 @@ import type { Team } from '../types';
 
 const teamSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().min(1, 'Team name is required.'),
-  discord_role_id: z.string().min(1, 'Discord Role ID is required.'),
+  name: z.string().min(1, '班の名前は必須です。'),
+  discord_role_id: z.string().min(1, 'DiscordロールIDは必須です。'),
 });
 
 async function checkAdmin() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required.');
+    if (!user) throw new Error('認証が必要です。');
 
     const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
-    if (!admin?.is_admin) throw new Error('Administrator privileges required.');
+    if (!admin?.is_admin) throw new Error('管理者権限が必要です。');
 }
 
 export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ error: string | null, team: Team | null }> {
@@ -25,7 +25,7 @@ export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ 
         await checkAdmin();
         const supabase = createClient();
         const parsedData = teamSchema.safeParse(values);
-        if (!parsedData.success) return { error: 'Invalid data.', team: null };
+        if (!parsedData.success) return { error: '無効なデータです。', team: null };
 
         const { name, discord_role_id } = parsedData.data;
 
@@ -49,7 +49,7 @@ export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ 
         await checkAdmin();
         const supabase = createClient();
         const parsedData = teamSchema.safeParse(values);
-        if (!parsedData.success || !parsedData.data.id) return { error: 'Invalid data.', team: null };
+        if (!parsedData.success || !parsedData.data.id) return { error: '無効なデータです。', team: null };
 
         const { id, name, discord_role_id } = parsedData.data;
         const { data: updatedTeam, error } = await supabase

@@ -15,8 +15,8 @@ import { updateGenerationRoles } from '@/lib/actions/generations';
 
 const generationSchema = z.object({
   roles: z.array(z.object({
-    generation: z.coerce.number().int().min(0, "Gen must be non-negative"),
-    discord_role_id: z.string().min(1, "Role ID is required"),
+    generation: z.coerce.number().int().min(0, "期は0以上である必要があります"),
+    discord_role_id: z.string().min(1, "ロールIDは必須です"),
   })),
 });
 
@@ -39,9 +39,9 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
   const onSubmit = async (data: GenerationFormData) => {
     const result = await updateGenerationRoles(data.roles);
     if (result.error) {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      toast({ title: 'エラー', description: result.error, variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: 'Generation roles have been updated.' });
+      toast({ title: '成功', description: '期別ロールが更新されました。' });
     }
   };
 
@@ -52,8 +52,8 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">Generation</TableHead>
-                <TableHead>Discord Role ID</TableHead>
+                <TableHead className="w-[150px]">期</TableHead>
+                <TableHead>Discord ロールID</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -67,7 +67,7 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input type="number" placeholder="e.g., 50" {...field} />
+                            <Input type="number" placeholder="例: 50" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -81,7 +81,7 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input placeholder="e.g., 123456789012345678" {...field} />
+                            <Input placeholder="例: 123456789012345678" {...field} />
                           </FormControl>
                            <FormMessage />
                         </FormItem>
@@ -106,10 +106,10 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
                 onClick={() => append({ generation: 0, discord_role_id: '' })}
             >
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Add Row
+                行を追加
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : 'Save All Changes'}
+                {form.formState.isSubmitting ? '保存中...' : 'すべての変更を保存'}
             </Button>
         </div>
       </form>

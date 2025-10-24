@@ -15,7 +15,7 @@ import { User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
 const profileSchema = z.object({
-    generation: z.coerce.number().int().min(1, 'Generation must be a positive number.'),
+    generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
 });
@@ -36,22 +36,22 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
         const result = await updateMyProfile(values);
         if (result.error) {
             toast({
-                title: 'Error updating profile',
+                title: 'プロフィールの更新に失敗しました',
                 description: result.error,
                 variant: 'destructive',
             });
         } else {
             toast({
-                title: 'Profile Updated',
-                description: 'Your changes have been saved successfully.',
+                title: 'プロフィール更新完了',
+                description: '変更が正常に保存されました。',
             });
         }
     }
     
     const statusMap = {
-      0: "Middle School",
-      1: "High School",
-      2: "Alumni"
+      0: "中学生",
+      1: "高校生",
+      2: "OB/OG"
     };
 
     return (
@@ -65,7 +65,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                         </Avatar>
                         <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
                         <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name}</p>
-                        <p className="text-muted-foreground text-sm mt-2">Joined on {new Date(user.joined_at).toLocaleDateString()}</p>
+                        <p className="text-muted-foreground text-sm mt-2">{new Date(user.joined_at).toLocaleDateString()} に参加</p>
                     </CardContent>
                 </Card>
             </div>
@@ -77,11 +77,11 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             name="generation"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Generation</FormLabel>
+                                    <FormLabel>期</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 50" {...field} />
+                                        <Input type="number" placeholder="例: 50" {...field} />
                                     </FormControl>
-                                    <FormDescription>Your generation number in the club.</FormDescription>
+                                    <FormDescription>あなたの期を入力してください。</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -91,11 +91,11 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             name="student_number"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Student Number</FormLabel>
+                                    <FormLabel>学籍番号</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Your student ID" {...field} value={field.value ?? ''} />
+                                        <Input placeholder="あなたの学籍番号" {...field} value={field.value ?? ''} />
                                     </FormControl>
-                                    <FormDescription>Optional.</FormDescription>
+                                    <FormDescription>任意入力です。</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -105,11 +105,11 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             name="status"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Status</FormLabel>
+                                <FormLabel>ステータス</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                     <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select your current status" />
+                                        <SelectValue placeholder="現在のステータスを選択" />
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
@@ -123,7 +123,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             )}
                         />
                         <Button type="submit" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting ? 'Saving...' : 'Save Changes'}
+                            {form.formState.isSubmitting ? '保存中...' : '変更を保存'}
                         </Button>
                     </form>
                 </Form>

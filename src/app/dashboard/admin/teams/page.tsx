@@ -33,8 +33,8 @@ export default async function TeamManagementPage() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Team Management</CardTitle>
-                <CardDescription>Create and manage teams, assign members, and designate team leaders.</CardDescription>
+                <CardTitle>班管理</CardTitle>
+                <CardDescription>班の作成と管理、メンバーの割り当て、班長の指名を行います。</CardDescription>
             </CardHeader>
             <CardContent>
                 <TeamManagementClient {...data} />
