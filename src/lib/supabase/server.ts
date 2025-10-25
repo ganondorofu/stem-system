@@ -12,10 +12,10 @@ export const createClient = () => {
         schema: 'member',
       },
       cookies: {
-        get: (name: string) => {
+        get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set: (name: string, value: string, options: CookieOptions) => {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
@@ -24,7 +24,7 @@ export const createClient = () => {
             // user sessions.
           }
         },
-        remove: (name: string, options: CookieOptions) => {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
           } catch (error) {
