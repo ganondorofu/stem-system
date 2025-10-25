@@ -133,7 +133,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
     const sanitizedName = name.replace(/\s/g, '');
 
-    const { error } = await supabase.from('members').insert({
+    const { error: memberInsertError, data: newMember } = await supabase.from('members').insert({
         supabase_auth_user_id: user.id,
         discord_uid: user.user_metadata.provider_id,
         avatar_url: user.user_metadata.avatar_url,
@@ -141,17 +141,18 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         status,
         student_number,
         generation: finalGeneration,
-    });
+        raw_user_meta_data: user.user_metadata, // Store user metadata on creation
+    }).select().single();
 
-    if (error) {
-        console.error('Error creating member profile:', error);
+    if (memberInsertError) {
+        console.error('Error creating member profile:', memberInsertError);
         return { error: '部員情報の作成に失敗しました。' };
     }
     
     // Insert team relations if any
     if (team_ids && team_ids.length > 0) {
         const relations = team_ids.map(team_id => ({
-            member_id: user.id,
+            member_id: newMember.supabase_auth_user_id,
             team_id: team_id
         }));
         const { error: relationError } = await supabase.from('member_team_relations').insert(relations);
@@ -166,6 +167,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     await syncDiscord(user.user_metadata.provider_id, sanitizedName);
 
     revalidatePath('/dashboard', 'layout');
+    revalidatePath('/dashboard/admin/members');
     return { error: null };
 }
 
@@ -286,4 +288,44 @@ export async function deleteMember(userId: string) {
 
     revalidatePath('/dashboard/admin/members');
     return { error: null };
+}
+
+export async function updateMemberTeams(memberId: string, teamIds: string[]): Promise<{ error: string | null }> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: '認証が必要です。' };
+
+    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
+    if (!admin?.is_admin) return { error: '管理者権限が必要です。' };
+
+    // Start a transaction
+    try {
+        // 1. Delete existing relations for this member
+        const { error: deleteError } = await supabase
+            .from('member_team_relations')
+            .delete()
+            .eq('member_id', memberId);
+
+        if (deleteError) throw deleteError;
+
+        // 2. Insert new relations if any teams were selected
+        if (teamIds.length > 0) {
+            const newRelations = teamIds.map(teamId => ({
+                member_id: memberId,
+                team_id: teamId,
+            }));
+            const { error: insertError } = await supabase
+                .from('member_team_relations')
+                .insert(newRelations);
+            
+            if (insertError) throw insertError;
+        }
+
+        revalidatePath('/dashboard/admin/members');
+        revalidatePath('/dashboard/admin/teams');
+        return { error: null };
+    } catch (e: any) {
+        console.error("Error updating member teams:", e);
+        return { error: e.message };
+    }
 }

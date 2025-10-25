@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { MemberManagementClient } from '@/components/dashboard/admin/MemberManagementClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Member, Team } from '@/lib/types';
+import type { Member, Team, MemberWithTeamsAndRelations, MemberTeamRelation } from '@/lib/types';
 import { createClient } from '@/lib/supabase/server';
 
 async function getMembersData() {
@@ -20,7 +20,6 @@ async function getMembersData() {
         throw membersError;
     }
 
-    // Fetch user details from auth.users to get their names
     const userIds = members.map(m => m.supabase_auth_user_id);
     const { data: { users: usersData }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
@@ -31,38 +30,43 @@ async function getMembersData() {
         console.error('Error fetching user metadata:', usersError);
         throw usersError;
     }
+    
+    const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
+    if (teamsError) console.error('Error fetching teams:', teamsError);
 
-    const profilesWithNames = members.map(member => {
+    const { data: relations, error: relationsError } = await supabase.from('member_team_relations').select('*');
+    if (relationsError) console.error('Error fetching relations:', relationsError);
+
+    const membersWithData: MemberWithTeamsAndRelations[] = members.map(member => {
         const user = usersData.find(u => u.id === member.supabase_auth_user_id);
+        const memberRelations = relations?.filter(r => r.member_id === member.supabase_auth_user_id) || [];
+        const memberTeams = memberRelations.map(mr => teams?.find(t => t.id === mr.team_id)).filter(Boolean) as Team[];
+
         return {
             ...member,
             name: user?.user_metadata?.name || '不明なユーザー',
+            relations: memberRelations,
+            teams: memberTeams,
         };
     });
-
-
-    const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
-    if (teamsError) {
-        console.error('Error fetching teams:', teamsError);
-    }
     
     return {
-        profiles: profilesWithNames,
-        teams: (teams as Team[]) || [],
+        profiles: membersWithData,
+        allTeams: (teams as Team[]) || [],
     };
 }
 
 export default async function MemberManagementPage() {
-    const { profiles, teams } = await getMembersData();
+    const { profiles, allTeams } = await getMembersData();
     
     return (
         <Card>
             <CardHeader>
                 <CardTitle>メンバー管理</CardTitle>
-                <CardDescription>すべての部員のロールとステータスを管理します。</CardDescription>
+                <CardDescription>すべての部員のロールとステータス、所属班を管理します。</CardDescription>
             </CardHeader>
             <CardContent>
-                <MemberManagementClient initialMembers={profiles} allTeams={teams} />
+                <MemberManagementClient initialMembers={profiles} allTeams={allTeams} />
             </CardContent>
         </Card>
     );

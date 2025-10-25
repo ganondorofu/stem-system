@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { Member, Team } from "@/lib/types"
+import type { Member, Team, MemberWithTeamsAndRelations } from "@/lib/types"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,9 +32,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { MoreHorizontal, ArrowUpDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberTeams } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -46,22 +47,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "../ui/form"
+import { useForm } from "react-hook-form"
 
-// This type is temporary until we fetch the full profiles
-type MemberWithName = Member & { name: string };
 
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithName[], allTeams: Team[] }) {
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [selectedMember, setSelectedMember] = React.useState<MemberWithName | null>(null)
+  const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
+  
+  const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
+  const teamForm = useForm<{ team_ids: string[] }>()
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
-  const handleAction = async () => {
+  const handleAlertAction = async () => {
     if (!selectedMember) return
     let result;
     if (alertAction === "delete") {
@@ -85,8 +91,35 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setIsAlertOpen(false)
     setSelectedMember(null)
   }
+  
+  const handleTeamDialog = (member: MemberWithTeamsAndRelations) => {
+    setSelectedMember(member)
+    teamForm.reset({ team_ids: member.teams.map(t => t.id) })
+    setIsTeamDialogOpen(true)
+  }
 
-  const columns: ColumnDef<MemberWithName>[] = [
+  const handleTeamUpdate = async (values: {team_ids: string[]}) => {
+    if (!selectedMember) return;
+    const result = await updateMemberTeams(selectedMember.supabase_auth_user_id, values.team_ids);
+    if (result.error) {
+      toast({ title: 'エラー', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: '成功', description: '所属班を更新しました。' });
+      // Update local state
+      setMembers(members.map(m => {
+        if (m.supabase_auth_user_id === selectedMember.supabase_auth_user_id) {
+          return {
+            ...m,
+            teams: allTeams.filter(t => values.team_ids.includes(t.id))
+          }
+        }
+        return m;
+      }));
+      setIsTeamDialogOpen(false);
+    }
+  }
+
+  const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
       accessorKey: "name",
       header: "氏名",
@@ -105,8 +138,15 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       header: "学籍番号",
     },
     {
-      accessorKey: "discord_uid",
-      header: "Discord UID",
+      accessorKey: "teams",
+      header: "所属班",
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-1">
+          {row.original.teams.map(team => (
+            <Badge key={team.id} variant="secondary">{team.name}</Badge>
+          ))}
+        </div>
+      )
     },
     {
       accessorKey: "status",
@@ -132,6 +172,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>操作</DropdownMenuLabel>
+               <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
+                班を編集
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 setSelectedMember(member)
                 setAlertAction("toggleAdmin")
@@ -173,7 +216,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="氏名 or Discord UIDで絞り込み..."
+          placeholder="氏名 or 学籍番号で絞り込み..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("name")?.setFilterValue(event.target.value)
@@ -256,12 +299,58 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAction} className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}>
+            <AlertDialogAction onClick={handleAlertAction} className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}>
               続行
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>所属班の編集</DialogTitle>
+            <DialogDescription>{selectedMember?.name}さんの所属する班を選択してください。</DialogDescription>
+          </DialogHeader>
+          <Form {...teamForm}>
+            <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
+              <FormField
+                control={teamForm.control}
+                name="team_ids"
+                render={() => (
+                  <FormItem className="space-y-4 py-4">
+                    {allTeams.map(team => (
+                      <FormField
+                        key={team.id}
+                        control={teamForm.control}
+                        name="team_ids"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(team.id)}
+                                onCheckedChange={checked => {
+                                  return checked
+                                    ? field.onChange([...(field.value || []), team.id])
+                                    : field.onChange(field.value?.filter(id => id !== team.id))
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">{team.name}</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>キャンセル</Button>
+                <Button type="submit">保存</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
