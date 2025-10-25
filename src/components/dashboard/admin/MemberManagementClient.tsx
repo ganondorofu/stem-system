@@ -11,6 +11,7 @@ import {
   useReactTable,
   type ColumnFiltersState,
   type SortingState,
+  type VisibilityState,
 } from "@tanstack/react-table"
 import {
   Table,
@@ -343,7 +344,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
+  const [isActionSubmitting, setIsActionSubmitting] = React.useState(false);
   const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
@@ -360,7 +363,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const handleAlertAction = async () => {
     if (!selectedMember) return;
-
+    setIsActionSubmitting(true);
     let result;
     if (alertAction === "delete") {
       result = await deleteMember(selectedMember.supabase_auth_user_id)
@@ -382,6 +385,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     
     setIsAlertOpen(false)
     setSelectedMember(null)
+    setIsActionSubmitting(false);
   }
   
   const handleTeamDialog = (member: MemberWithTeamsAndRelations) => {
@@ -520,7 +524,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>操作</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => handleProfileDialog(member)}>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleProfileDialog(member)}}>
                 プロフィールを表示
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEditProfileDialog(member)}>
@@ -560,9 +564,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
     state: {
       sorting,
       columnFilters,
+      columnVisibility,
     },
   })
 

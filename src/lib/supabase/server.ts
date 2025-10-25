@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-function createSupabaseClient(isAdmin: boolean = false) {
+async function createSupabaseClient(isAdmin: boolean = false) {
   const cookieStore = cookies()
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -47,14 +47,10 @@ function createSupabaseClient(isAdmin: boolean = false) {
   })
 }
 
-export function createClient() {
-  // We are not using async/await here because createSupabaseClient is synchronous.
-  // The cookies() object from next/headers is being passed, and the async operations
-  // are handled internally by the library when it needs to access the cookies.
-  return createSupabaseClient(false);
+export async function createClient() {
+  return await createSupabaseClient(false);
 }
 
-export function createAdminClient() {
-  // We are not using async/await here for the same reasons as createClient.
-  return createSupabaseClient(true);
+export async function createAdminClient() {
+  return await createSupabaseClient(true);
 }
