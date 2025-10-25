@@ -8,10 +8,12 @@ export type Member = {
   is_admin: boolean;
   joined_at: string;
   deleted_at: string | null;
-  raw_user_meta_data: {
-    [key: string]: any;
-  };
 };
+
+export type EnrichedMember = Member & {
+  displayName: string;
+  avatar_url: string | null;
+}
 
 export type Team = {
   id: string;
@@ -34,7 +36,10 @@ export type GenerationRole = {
   discord_role_id: string;
 };
 
-export type FullUserProfile = Member;
+export type FullUserProfile = Member & {
+  displayName: string;
+  discordUsername: string;
+};
 
 export type MemberWithTeams = Member & {
   teams: Team[];
@@ -42,6 +47,10 @@ export type MemberWithTeams = Member & {
 
 export type MemberWithTeamsAndRelations = MemberWithTeams & {
   relations: MemberTeamRelation[];
+}
+
+export type MemberWithTeamsAndRelationsAndDisplayData = MemberWithTeamsAndRelations & {
+  displayName: string;
 }
 
 

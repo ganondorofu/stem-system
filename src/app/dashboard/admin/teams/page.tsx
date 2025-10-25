@@ -2,13 +2,43 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { TeamManagementClient } from '@/components/dashboard/admin/TeamManagementClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { User } from '@supabase/supabase-js';
+import type { EnrichedMember } from '@/lib/types';
+
+
+async function getDiscordName(discordUid: string): Promise<string | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token || !discordUid) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to fetch nickname for ${discordUid}:`, response.status, await response.text());
+            return null;
+        }
+        
+        const data = await response.json();
+        return data.name_only || null;
+    } catch (error) {
+        console.error(`Error fetching nickname for ${discordUid}:`, error);
+        return null;
+    }
+}
 
 async function getTeamsData() {
-    const supabase = createClient();
-    const supabaseAdmin = createAdminClient();
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     
     const teamsPromise = supabase.from('teams').select('*').order('name');
-    // Remove raw_user_meta_data from this select
     const membersPromise = supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null);
     const relationsPromise = supabase.from('member_team_relations').select('*');
     const leadersPromise = supabase.from('team_leaders').select('*');
@@ -34,13 +64,17 @@ async function getTeamsData() {
        else users = usersData;
     }
 
-    const enrichedMembers = members.map(member => {
+    const enrichedMembers: EnrichedMember[] = await Promise.all(members.map(async (member) => {
         const user = users.find(u => u.id === member.supabase_auth_user_id);
+        const discordName = await getDiscordName(member.discord_uid);
+        const displayName = discordName || user?.user_metadata.name || '名前不明';
+        
         return {
             ...member,
-            raw_user_meta_data: { name: user?.user_metadata.name || '名前不明' }
+            displayName,
+            avatar_url: user?.user_metadata.avatar_url || null,
         }
-    });
+    }));
 
     return {
         teams: teamsRes.data || [],
