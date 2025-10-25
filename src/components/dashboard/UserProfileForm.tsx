@@ -13,10 +13,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    // Check for user_name (e.g., "username#0") and split it, otherwise fallback to other names.
-    const discordUsername = user.raw_user_meta_data?.user_name?.includes('#') 
-        ? user.raw_user_meta_data.user_name.split('#')[0] 
-        : user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
+    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
         
     const displayName = user.raw_user_meta_data.name || '名前不明';
 
