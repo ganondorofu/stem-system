@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
@@ -5,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import type { GenerationRole } from '../types';
 
 async function checkAdmin() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Authentication required.');
 
@@ -13,10 +14,68 @@ async function checkAdmin() {
     if (!admin?.is_admin) throw new Error('Administrator privileges required.');
 }
 
+export async function createGenerationRole(generation: number): Promise<{ error: string | null, newRole: GenerationRole | null }> {
+    try {
+        await checkAdmin();
+        const supabase = await createClient();
+
+        // Check if role already exists in DB
+        const { data: existingRole, error: existingError } = await supabase
+            .from('generation_roles')
+            .select('generation')
+            .eq('generation', generation)
+            .single();
+
+        if (existingError && existingError.code !== 'PGRST116') { // PGRST116 is "No rows found"
+            throw existingError;
+        }
+        if (existingRole) {
+            return { error: `期生 ${generation} は既に存在します。`, newRole: null };
+        }
+
+        const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+        const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+        if (!apiUrl || !token) {
+            throw new Error('API URL or Bearer Token is not configured.');
+        }
+
+        const response = await fetch(`${apiUrl}/api/generation`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ generation }),
+            cache: 'no-store',
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Discordロールの作成に失敗しました。');
+        }
+
+        const newRole: GenerationRole = {
+            generation: result.generation,
+            discord_role_id: result.role_id,
+        };
+
+        // The API should have already saved it to the DB, but we revalidate to be sure.
+        revalidatePath('/dashboard/admin/generations');
+        return { error: null, newRole };
+
+    } catch (e: any) {
+        console.error('Error creating generation role:', e);
+        return { error: e.message, newRole: null };
+    }
+}
+
+
 export async function updateGenerationRoles(roles: GenerationRole[]): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
-        const supabase = createClient();
+        const supabase = await createClient();
 
         // Use a transaction to update all roles
         // First delete all existing roles, then insert the new ones.
@@ -26,7 +85,7 @@ export async function updateGenerationRoles(roles: GenerationRole[]): Promise<{ 
         if (deleteError) throw deleteError;
         
         // Filter out any rows that might be empty from the UI
-        const validRoles = roles.filter(r => r.generation >= 0 && r.discord_role_id.trim() !== '');
+        const validRoles = roles.filter(r => r.generation >= 0 && String(r.discord_role_id).trim() !== '');
 
         if (validRoles.length > 0) {
             const { error: insertError } = await supabase.from('generation_roles').insert(validRoles);
