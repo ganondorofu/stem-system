@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 // Admin client using the service role key
-export const createAdminClient = () => {
+export function createAdminClient() {
     const cookieStore = cookies()
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -38,14 +38,14 @@ export const createAdminClient = () => {
 }
 
 
-export const createClient = () => {
+export function createClient() {
   const cookieStore = cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      db: {
+       db: {
         schema: 'member',
       },
       cookies: {
