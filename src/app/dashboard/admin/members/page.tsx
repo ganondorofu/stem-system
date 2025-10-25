@@ -4,9 +4,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Member, Team, MemberWithTeamsAndRelations, MemberTeamRelation } from '@/lib/types';
 import { createClient } from '@/lib/supabase/server';
 
+async function getDiscordName(discordUid: string): Promise<string | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token || !discordUid) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to fetch nickname for ${discordUid}:`, response.status, await response.text());
+            return null;
+        }
+        
+        const data = await response.json();
+        return data.name_only || null;
+    } catch (error) {
+        console.error(`Error fetching nickname for ${discordUid}:`, error);
+        return null;
+    }
+}
+
+
 async function getMembersData() {
-    const supabase = await createClient();
-    const supabaseAdmin = await createAdminClient();
+    const supabase = createClient();
+    const supabaseAdmin = createAdminClient();
     
     const { data: members, error: membersError } = await supabase
         .from('members')
@@ -37,18 +67,21 @@ async function getMembersData() {
     const { data: relations, error: relationsError } = await supabase.from('member_team_relations').select('*');
     if (relationsError) console.error('Error fetching relations:', relationsError);
 
-    const membersWithData: MemberWithTeamsAndRelations[] = members.map(member => {
+    const membersWithData: MemberWithTeamsAndRelations[] = await Promise.all(members.map(async (member) => {
         const user = usersData.find(u => u.id === member.supabase_auth_user_id);
         const memberRelations = relations?.filter(r => r.member_id === member.supabase_auth_user_id) || [];
         const memberTeams = memberRelations.map(mr => teams?.find(t => t.id === mr.team_id)).filter(Boolean) as Team[];
+        
+        const discordName = await getDiscordName(member.discord_uid);
+        const memberName = discordName || user?.user_metadata.name || '名前不明';
 
         return {
             ...member,
-            raw_user_meta_data: user?.user_metadata || {},
+            raw_user_meta_data: { ...user?.user_metadata, name: memberName }, // Override name with fetched one
             relations: memberRelations,
             teams: memberTeams,
         };
-    });
+    }));
     
     return {
         profiles: membersWithData,
