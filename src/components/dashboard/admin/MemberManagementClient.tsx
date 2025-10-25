@@ -469,7 +469,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         {isLoading || !cachedName ? (
            <Skeleton className="h-5 w-24" />
         ) : (
-          <span className="font-medium">{cachedName}</span>
+          <div className="flex flex-col">
+            <span className="font-medium">{cachedName}</span>
+            <span className="text-xs text-muted-foreground font-mono">{member.discord_uid}</span>
+          </div>
         )}
       </div>
     );
@@ -478,7 +481,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "displayName", // This will be used for sorting/filtering
+      accessorKey: "displayName",
       header: "メンバー",
       cell: DisplayNameCell,
     },
@@ -490,6 +493,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
+      cell: ({ row }) => <span>{row.original.generation}期</span>
+    },
+    {
+        accessorKey: "student_number",
+        header: "学籍番号",
     },
     {
       accessorKey: "status",
