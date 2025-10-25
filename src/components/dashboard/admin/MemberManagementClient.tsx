@@ -31,8 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Info } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
@@ -56,7 +56,7 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const profileSchema = z.object({
     status: z.coerce.number().int().min(0).max(2),
@@ -87,7 +87,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (member) {
+    if (isOpen && member) {
       setIsLoading(true);
       getMemberDisplayName(member.discord_uid)
         .then(name => {
@@ -99,7 +99,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
           setIsLoading(false);
         });
     }
-  }, [member]);
+  }, [isOpen, member]);
 
   const statusMap: { [key: number]: { label: string, icon: React.ElementType } } = {
       0: { label: "中学生", icon: School },
@@ -234,7 +234,6 @@ function EditProfileDialog({
     }, [member, form]);
     
     const watchedStatus = useWatch({ control: form.control, name: 'status' });
-    const watchedGrade = useWatch({ control: form.control, name: 'grade' }); // Note: grade isn't in profileSchema, but we might need it for logic
     
     const isStudent = watchedStatus === 0 || watchedStatus === 1;
 
@@ -351,7 +350,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   
   const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
   const teamForm = useForm<{ team_ids: string[] }>()
-  const [isActionSubmitting, setIsActionSubmitting] = React.useState(false)
   const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
 
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
@@ -362,7 +360,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const handleAlertAction = async () => {
     if (!selectedMember) return;
-    setIsActionSubmitting(true);
+
     let result;
     if (alertAction === "delete") {
       result = await deleteMember(selectedMember.supabase_auth_user_id)
@@ -382,7 +380,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       variant: result.error ? "destructive" : "default",
     })
     
-    setIsActionSubmitting(false)
     setIsAlertOpen(false)
     setSelectedMember(null)
   }
@@ -516,7 +513,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
+              <Button variant="ghost" className="h-8 w-8 p-0">
                 <span className="sr-only">メニューを開く</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -567,11 +564,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       sorting,
       columnFilters,
     },
-    initialState: {
-      columnVisibility: {
-        'displayName': false
-      }
-    }
   })
 
   // displayName is now fetched on client, so we use a different value for filtering
@@ -675,7 +667,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isActionSubmitting}>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsAlertOpen(false)}>キャンセル</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleAlertAction} 
               disabled={isActionSubmitting}
