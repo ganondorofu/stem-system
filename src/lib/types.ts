@@ -10,7 +10,7 @@ export type Member = {
   deleted_at: string | null;
 };
 
-export type EnrichedMember = Member & {
+export type EnrichedMember = Omit<Member, "status" | "joined_at" | "deleted_at" | "is_admin"> & {
   displayName: string;
   avatar_url: string | null;
 }

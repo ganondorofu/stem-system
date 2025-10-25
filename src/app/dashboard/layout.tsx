@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
-import type { FullUserProfile, Member } from '@/lib/types';
+import type { Member } from '@/lib/types';
 import DashboardHeader from '@/components/layout/DashboardHeader';
 
 export default async function DashboardLayout({
@@ -9,7 +9,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -25,7 +25,7 @@ export default async function DashboardLayout({
 
   // New user registration is now handled on the dashboard page
   // We only build a partial profile here if the user exists
-  const fullProfile: FullUserProfile | null = memberProfile ? {
+  const fullProfile: (Member & { raw_user_meta_data: any }) | null = memberProfile ? {
     ...(memberProfile as Member),
     raw_user_meta_data: user.user_metadata,
   } : null;
