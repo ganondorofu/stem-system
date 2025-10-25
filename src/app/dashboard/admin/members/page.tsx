@@ -35,8 +35,8 @@ async function getDiscordName(discordUid: string): Promise<string | null> {
 
 
 async function getMembersData() {
-    const supabase = createClient();
-    const supabaseAdmin = createAdminClient();
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     
     const { data: members, error: membersError } = await supabase
         .from('members')
@@ -73,11 +73,13 @@ async function getMembersData() {
         const memberTeams = memberRelations.map(mr => teams?.find(t => t.id === mr.team_id)).filter(Boolean) as Team[];
         
         const discordName = await getDiscordName(member.discord_uid);
+        // Use discordName as the primary source for the name, fallback to metadata
         const memberName = discordName || user?.user_metadata.name || '名前不明';
 
         return {
             ...member,
-            raw_user_meta_data: { ...user?.user_metadata, name: memberName }, // Override name with fetched one
+            // Ensure raw_user_meta_data has the most accurate name for display
+            raw_user_meta_data: { ...(user?.user_metadata || {}), name: memberName }, 
             relations: memberRelations,
             teams: memberTeams,
         };

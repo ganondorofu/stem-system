@@ -56,41 +56,63 @@ function calculateGeneration(status: number, grade: number, academicYear: number
     return null;
 }
 
-async function syncDiscord(discordUid: string, name: string) {
+async function syncDiscordRoles(discordUid: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
     if (!apiUrl || !token) {
-        console.error('API URL or Bearer Token is not configured for Discord sync.');
+        console.error('API URL or Bearer Token is not configured for Discord role sync.');
         return; // Don't throw error, just log and skip sync
     }
     
-    // Sync roles first
     try {
-        await fetch(`${apiUrl}/api/roles/sync`, {
+        const res = await fetch(`${apiUrl}/api/roles/sync`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ discord_uid: discordUid }),
+            cache: 'no-store',
         });
+         if (!res.ok) {
+            console.error('Failed to sync roles:', res.status, await res.text());
+        }
     } catch (e) {
-        console.error('Failed to sync roles:', e);
-    }
-    
-    // Then update nickname
-    try {
-        await fetch(`${apiUrl}/api/nickname/update`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ discord_uid: discordUid, name: name }),
-        });
-    } catch(e) {
-        console.error('Failed to update nickname:', e);
+        console.error('Error during role sync:', e);
     }
 }
 
+async function syncDiscordNickname(discordUid: string, name: string) {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token) {
+        console.error('API URL or Bearer Token is not configured for Discord nickname sync.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${apiUrl}/api/nickname/update`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ discord_uid: discordUid, name: name }),
+            cache: 'no-store',
+        });
+        if (!res.ok) {
+            console.error('Failed to update nickname:', res.status, await res.text());
+        }
+    } catch(e) {
+        console.error('Error during nickname update:', e);
+    }
+}
+
+async function getMemberName(supabase_auth_user_id: string) {
+    const supabase = await createClient();
+    const {data: member, error} = await supabase.from('members').select('raw_user_meta_data').eq('supabase_auth_user_id', supabase_auth_user_id).single();
+    if (error || !member) return null;
+    return member.raw_user_meta_data.name || null;
+}
 
 export async function registerNewMember(values: z.infer<typeof registerSchema>) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -141,7 +163,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         status,
         student_number,
         generation: finalGeneration,
-        raw_user_meta_data: user.user_metadata, // Store user metadata on creation
+        raw_user_meta_data: { ...user.user_metadata, name: sanitizedName },
     }).select().single();
 
     if (memberInsertError) {
@@ -149,7 +171,6 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: '部員情報の作成に失敗しました。' };
     }
     
-    // Insert team relations if any
     if (team_ids && team_ids.length > 0) {
         const relations = team_ids.map(team_id => ({
             member_id: newMember.supabase_auth_user_id,
@@ -158,13 +179,11 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         const { error: relationError } = await supabase.from('member_team_relations').insert(relations);
         if (relationError) {
             console.error('Error creating member-team relations:', relationError);
-            // We can decide if this should be a critical error. For now, just log it.
         }
     }
 
-
-    // Sync with Discord without waiting for it to finish
-    await syncDiscord(user.user_metadata.provider_id, sanitizedName);
+    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName);
+    await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard/admin/members');
@@ -173,7 +192,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
 
 export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -198,13 +217,19 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
         console.error('Error updating profile:', error);
         return { error: 'プロフィールの更新に失敗しました。もう一度お試しください。' };
     }
+    
+    const memberName = await getMemberName(user.id);
+    if(memberName){
+        await syncDiscordNickname(user.user_metadata.provider_id, memberName);
+    }
+    await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
     return { error: null };
 }
 
 export async function updateMemberAdmin(userId: string, values: z.infer<typeof profileSchema>) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -231,7 +256,7 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 }
 
 export async function toggleAdminStatus(userId: string, currentStatus: boolean) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -261,7 +286,7 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
 }
 
 export async function deleteMember(userId: string) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -291,16 +316,14 @@ export async function deleteMember(userId: string) {
 }
 
 export async function updateMemberTeams(memberId: string, teamIds: string[]): Promise<{ error: string | null }> {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: '認証が必要です。' };
 
     const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
     if (!admin?.is_admin) return { error: '管理者権限が必要です。' };
 
-    // Start a transaction
     try {
-        // 1. Delete existing relations for this member
         const { error: deleteError } = await supabase
             .from('member_team_relations')
             .delete()
@@ -308,7 +331,6 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
 
         if (deleteError) throw deleteError;
 
-        // 2. Insert new relations if any teams were selected
         if (teamIds.length > 0) {
             const newRelations = teamIds.map(teamId => ({
                 member_id: memberId,
@@ -319,6 +341,11 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
                 .insert(newRelations);
             
             if (insertError) throw insertError;
+        }
+
+        const { data: member } = await supabase.from('members').select('discord_uid').eq('supabase_auth_user_id', memberId).single();
+        if (member) {
+            await syncDiscordRoles(member.discord_uid);
         }
 
         revalidatePath('/dashboard/admin/members');
