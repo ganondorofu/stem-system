@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { UserProfileForm } from '@/components/dashboard/UserProfileForm';
+import { UserProfile } from '@/components/dashboard/UserProfileForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { FullUserProfile, Member, DiscordMemberStatus } from '@/lib/types';
+import type { DiscordMemberStatus, Team, MemberWithTeams } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info, TriangleAlert, Server, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -123,24 +123,39 @@ export default async function DashboardGatePage() {
         return redirect('/dashboard/register');
     }
 
-    const fullProfile: FullUserProfile = {
-      ...(memberProfile as Member),
-      raw_user_meta_data: user.user_metadata,
+    const { data: teamRelations } = await supabase
+        .from('member_team_relations')
+        .select('team_id')
+        .eq('member_id', user.id);
+    
+    const teamIds = teamRelations?.map(r => r.team_id) || [];
+    let teams: Team[] = [];
+    if (teamIds.length > 0) {
+        const { data: teamsData } = await supabase
+            .from('teams')
+            .select('*')
+            .in('id', teamIds);
+        teams = teamsData || [];
+    }
+    
+    const profileWithTeams: MemberWithTeams = {
+        ...memberProfile,
+        teams: teams,
+        raw_user_meta_data: user.user_metadata,
     };
+
 
     return (
         <div className="space-y-4">
             <Card>
                 <CardHeader>
                     <CardTitle>マイプロフィール</CardTitle>
-                    <CardDescription>個人情報を表示・編集します。この情報は他の部員にも表示されます。</CardDescription>
+                    <CardDescription>あなたの登録情報です。この情報は他の部員にも共有されます。</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <UserProfileForm user={fullProfile} />
+                    <UserProfile user={profileWithTeams} />
                 </CardContent>
             </Card>
         </div>
     );
 }
-
-    

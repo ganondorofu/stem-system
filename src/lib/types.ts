@@ -44,10 +44,14 @@ export type FullUserProfile = Member & {
 
 export type MemberWithTeams = Member & {
   teams: Team[];
+   raw_user_meta_data: {
+    [key: string]: any;
+  };
 };
 
-export type MemberWithTeamsAndRelations = MemberWithTeams & {
+export type MemberWithTeamsAndRelations = Member & {
   relations: MemberTeamRelation[];
+  teams: Team[];
   displayName: string;
 }
 
