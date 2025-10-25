@@ -128,12 +128,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "raw_user_meta_data.name",
+      accessorKey: "displayName",
       header: "氏名",
       cell: ({ row }) => {
-        const name = row.original.raw_user_meta_data.name;
-        // In case name is not available in raw_user_meta_data, you can have a fallback
-        return name || '名前不明';
+        return row.original.displayName || '名前不明';
       },
     },
     {
@@ -228,10 +226,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="氏名 or 学籍番号で絞り込み..."
-          value={(table.getColumn("raw_user_meta_data.name")?.getFilterValue() as string) ?? ""}
+          placeholder="氏名で絞り込み..."
+          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("raw_user_meta_data.name")?.setFilterValue(event.target.value)
+            table.getColumn("displayName")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -325,7 +323,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <DialogContent>
           <DialogHeader>
             <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
+            <DialogDescription>{selectedMember?.displayName}さんの所属する班を選択してください。</DialogDescription>
           </DialogHeader>
           <Form {...teamForm}>
             <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
