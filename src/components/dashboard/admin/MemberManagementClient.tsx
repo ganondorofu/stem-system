@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MoreHorizontal, ArrowUpDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { deleteMember, toggleAdminStatus, updateMemberTeams } from "@/lib/actions/members"
@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "../ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
 import { useForm } from "react-hook-form"
 
 
@@ -121,8 +121,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "name",
+      accessorKey: "raw_user_meta_data.name",
       header: "氏名",
+      cell: ({ row }) => row.original.raw_user_meta_data.name,
     },
     {
       accessorKey: "generation",
@@ -217,9 +218,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       <div className="flex items-center py-4">
         <Input
           placeholder="氏名 or 学籍番号で絞り込み..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          value={(table.getColumn("raw_user_meta_data_name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
+            table.getColumn("raw_user_meta_data_name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -309,7 +310,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <DialogContent>
           <DialogHeader>
             <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.name}さんの所属する班を選択してください。</DialogDescription>
+            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
           </DialogHeader>
           <Form {...teamForm}>
             <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
