@@ -43,7 +43,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
         } else {
             toast({
                 title: 'プロフィール更新完了',
-                description: '変更が正常に保存されました。',
+                description: '変更が正常に保存されました。Discordの情報も同期されます。',
             });
         }
     }
@@ -54,7 +54,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
       2: "OB/OG"
     };
     
-    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
+    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.full_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
 
     return (
         <div className="grid md:grid-cols-3 gap-8">

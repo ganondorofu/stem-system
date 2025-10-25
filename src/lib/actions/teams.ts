@@ -12,7 +12,7 @@ const teamSchema = z.object({
 });
 
 async function checkAdmin() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('認証が必要です。');
 
@@ -20,10 +20,35 @@ async function checkAdmin() {
     if (!admin?.is_admin) throw new Error('管理者権限が必要です。');
 }
 
+async function syncDiscordRoles(discordUid: string) {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token) {
+        console.error('API URL or Bearer Token is not configured for Discord role sync.');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${apiUrl}/api/roles/sync`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ discord_uid: discordUid }),
+            cache: 'no-store',
+        });
+         if (!res.ok) {
+            console.error('Failed to sync roles:', res.status, await res.text());
+        }
+    } catch (e) {
+        console.error('Error during role sync:', e);
+    }
+}
+
+
 export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ error: string | null, team: Team | null }> {
     try {
         await checkAdmin();
-        const supabase = createClient();
+        const supabase = await createClient();
         const parsedData = teamSchema.safeParse(values);
         if (!parsedData.success) return { error: '無効なデータです。', team: null };
 
@@ -47,7 +72,7 @@ export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ 
 export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ error: string | null, team: Team | null }> {
      try {
         await checkAdmin();
-        const supabase = createClient();
+        const supabase = await createClient();
         const parsedData = teamSchema.safeParse(values);
         if (!parsedData.success || !parsedData.data.id) return { error: '無効なデータです。', team: null };
 
@@ -71,7 +96,7 @@ export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ 
 export async function deleteTeam(teamId: string): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
-        const supabase = createClient();
+        const supabase = await createClient();
         
         const { error } = await supabase.from('teams').delete().eq('id', teamId);
         if (error) throw error;
@@ -87,16 +112,34 @@ export async function deleteTeam(teamId: string): Promise<{ error: string | null
 export async function updateTeamLeader(teamId: string, memberId: string | null): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
-        const supabase = createClient();
+        const supabase = await createClient();
 
-        // Remove existing leader for the team first
+        // Find the old and new leader's discord_uid to sync their roles
+        const { data: teamMembers } = await supabase.from('team_leaders')
+            .select('member_id')
+            .eq('team_id', teamId);
+
+        const oldLeaderId = teamMembers?.[0]?.member_id;
+
         const { error: deleteError } = await supabase.from('team_leaders').delete().eq('team_id', teamId);
         if (deleteError) throw deleteError;
 
-        // If a new leader is selected, insert the new record
         if (memberId) {
             const { error: insertError } = await supabase.from('team_leaders').insert({ team_id: teamId, member_id: memberId });
             if (insertError) throw insertError;
+        }
+
+        const idsToSync = [oldLeaderId, memberId].filter(Boolean) as string[];
+        if (idsToSync.length > 0) {
+            const { data: membersToSync } = await supabase.from('members')
+                .select('discord_uid')
+                .in('supabase_auth_user_id', idsToSync);
+            
+            if (membersToSync) {
+                for (const member of membersToSync) {
+                    await syncDiscordRoles(member.discord_uid);
+                }
+            }
         }
 
         revalidatePath('/dashboard/admin/teams');
