@@ -32,9 +32,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Info } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -47,11 +47,39 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
-import { useForm } from "react-hook-form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { useForm, useWatch } from "react-hook-form"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
+
+const profileSchema = z.object({
+    status: z.coerce.number().int().min(0).max(2),
+    student_number: z.string().optional().nullable(),
+    generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
+});
+
+
+function getAcademicYear() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed (0 for January)
+    return month >= 3 ? year : year - 1; // Academic year starts in April
+}
+
+function calculateGeneration(status: number, grade: number, academicYear: number) {
+    if (status === 1) { // High School
+        return 10 + (academicYear - 2025) - grade + 1;
+    }
+    if (status === 0) { // Junior High
+        return 10 + (academicYear - 2025) + 4 - grade;
+    }
+    return null;
+}
 
 function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
   const [displayName, setDisplayName] = React.useState<string | null>(null);
@@ -62,11 +90,11 @@ function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
       setIsLoading(true);
       getMemberDisplayName(member.discord_uid)
         .then(name => {
-          setDisplayName(name);
+          setDisplayName(name || member.raw_user_meta_data?.name || '名前不明');
           setIsLoading(false);
         })
         .catch(() => {
-          setDisplayName(member.raw_user_meta_data?.user_name?.split('#')[0] || '不明');
+          setDisplayName(member.raw_user_meta_data?.name || '名前不明');
           setIsLoading(false);
         });
     }
@@ -169,6 +197,145 @@ function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
   )
 }
 
+function EditProfileDialog({
+  member,
+  isOpen,
+  onOpenChange,
+  onProfileUpdate,
+}: {
+  member: MemberWithTeamsAndRelations | null;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onProfileUpdate: (updatedMember: Partial<MemberWithTeamsAndRelations>) => void;
+}) {
+    const { toast } = useToast();
+    const academicYear = getAcademicYear();
+
+    const form = useForm<z.infer<typeof profileSchema>>({
+        resolver: zodResolver(profileSchema),
+        defaultValues: {
+            status: member?.status ?? 1,
+            student_number: member?.student_number,
+            generation: member?.generation,
+        },
+    });
+
+    React.useEffect(() => {
+        if (member) {
+            form.reset({
+                status: member.status,
+                student_number: member.student_number,
+                generation: member.generation,
+            });
+        }
+    }, [member, form]);
+    
+    const watchedStatus = useWatch({ control: form.control, name: 'status' });
+    const watchedGrade = useWatch({ control: form.control, name: 'grade' }); // Note: grade isn't in profileSchema, but we might need it for logic
+    
+    const isStudent = watchedStatus === 0 || watchedStatus === 1;
+
+    async function onSubmit(values: z.infer<typeof profileSchema>) {
+        if (!member) return;
+
+        const result = await updateMemberAdmin(member.supabase_auth_user_id, values);
+        if (result.error) {
+            toast({
+                title: '更新に失敗しました',
+                description: result.error,
+                variant: 'destructive',
+            });
+        } else {
+            toast({
+                title: '成功',
+                description: 'メンバー情報を更新しました。',
+            });
+            onProfileUpdate({ ...member, ...values });
+            onOpenChange(false);
+        }
+    }
+
+    const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>プロフィールを編集</DialogTitle>
+                    <DialogDescription>
+                        {member?.raw_user_meta_data.name}さんの情報を編集します。
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                        <FormField
+                            control={form.control}
+                            name="status"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>現在の身分</FormLabel>
+                                <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={String(field.value)}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="現在の身分を選択" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {Object.entries(statusMap).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {isStudent && (
+                            <FormField
+                                control={form.control}
+                                name="student_number"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>学籍番号</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="学籍番号" {...field} value={field.value ?? ''} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                        
+                        <FormField
+                            control={form.control}
+                            name="generation"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>期</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="例: 10" {...field} value={field.value ?? ''} onChange={e => {
+                                            const value = parseInt(e.target.value, 10);
+                                            field.onChange(isNaN(value) ? undefined : value);
+                                        }} />
+                                    </FormControl>
+                                    <FormDescription>在籍中の生徒の場合、この値は参考情報として使われ、年度更新時に自動計算されます。</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={form.formState.isSubmitting}>キャンセル</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? '保存中...' : '保存'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
@@ -181,14 +348,17 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   
   const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
   const teamForm = useForm<{ team_ids: string[] }>()
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [isActionSubmitting, setIsActionSubmitting] = React.useState(false)
   const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
+
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
+
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
   const handleAlertAction = async () => {
     if (!selectedMember) return;
-    setIsSubmitting(true);
+    setIsActionSubmitting(true);
     let result;
     if (alertAction === "delete") {
       result = await deleteMember(selectedMember.supabase_auth_user_id)
@@ -208,7 +378,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       variant: result.error ? "destructive" : "default",
     })
     
-    setIsSubmitting(false)
+    setIsActionSubmitting(false)
     setIsAlertOpen(false)
     setSelectedMember(null)
   }
@@ -218,6 +388,16 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     teamForm.reset({ team_ids: member.teams.map(t => t.id) })
     setIsTeamDialogOpen(true)
   }
+
+  const handleProfileDialog = (member: MemberWithTeamsAndRelations) => {
+    setSelectedMember(member)
+    setIsProfileDialogOpen(true);
+  }
+
+  const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>) => {
+    setMembers(members.map(m => m.supabase_auth_user_id === updatedMember.supabase_auth_user_id ? {...m, ...updatedMember} : m));
+  }
+
 
   const handleTeamUpdate = async (values: {team_ids: string[]}) => {
     if (!selectedMember) return;
@@ -243,23 +423,54 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setIsTeamSubmitting(false);
   }
 
+  const [displayNameCache, setDisplayNameCache] = React.useState<Record<string, string>>({});
+  const [loadingDisplayNames, setLoadingDisplayNames] = React.useState<Record<string, boolean>>({});
+
+  const DisplayNameCell = ({ row }: { row: any }) => {
+    const member = row.original as MemberWithTeamsAndRelations;
+    const discordUid = member.discord_uid;
+    const cachedName = displayNameCache[discordUid];
+    const isLoading = loadingDisplayNames[discordUid];
+
+    React.useEffect(() => {
+      if (!cachedName && !isLoading) {
+        setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: true }));
+        getMemberDisplayName(discordUid)
+          .then(name => {
+            const finalName = name || member.raw_user_meta_data?.name || member.discord_uid;
+            setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
+          })
+          .catch(() => {
+            const finalName = member.raw_user_meta_data?.name || member.discord_uid;
+            setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
+          })
+          .finally(() => {
+            setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: false }));
+          });
+      }
+    }, [discordUid, cachedName, isLoading, member]);
+
+    return (
+      <div className="flex items-center gap-3">
+        <Avatar>
+          <AvatarImage src={member.avatar_url || ''} />
+          <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
+        </Avatar>
+        {isLoading || !cachedName ? (
+           <Skeleton className="h-5 w-24" />
+        ) : (
+          <span className="font-medium">{cachedName}</span>
+        )}
+      </div>
+    );
+  };
+
+
   const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "discord_uid",
+      accessorKey: "displayName", // This will be used for sorting/filtering
       header: "メンバー",
-      cell: ({ row }) => {
-        const member = row.original;
-        const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid;
-        return (
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={member.avatar_url || ''} />
-              <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
-            </Avatar>
-            <span className="font-medium">{discordUsername}</span>
-          </div>
-        )
-      },
+      cell: DisplayNameCell,
     },
     {
       accessorKey: "generation",
@@ -288,7 +499,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <Dialog>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmitting}>
+                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
                   <span className="sr-only">メニューを開く</span>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
@@ -296,8 +507,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>操作</DropdownMenuLabel>
                 <DialogTrigger asChild>
-                   <DropdownMenuItem>プロフィールを表示</DropdownMenuItem>
+                   <DropdownMenuItem onSelect={() => setSelectedMember(member)}>プロフィールを表示</DropdownMenuItem>
                 </DialogTrigger>
+                 <DropdownMenuItem onClick={() => handleProfileDialog(member)}>
+                  プロフィールを編集
+                </DropdownMenuItem>
                  <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
                   班を編集
                 </DropdownMenuItem>
@@ -318,7 +532,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <ProfileDialog member={member} />
+            {selectedMember?.supabase_auth_user_id === member.supabase_auth_user_id && <ProfileDialog member={selectedMember} />}
           </Dialog>
         )
       },
@@ -344,10 +558,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="Discord IDで絞り込み..."
-          value={(table.getColumn("discord_uid")?.getFilterValue() as string) ?? ""}
+          placeholder="名前で絞り込み..."
+          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("discord_uid")?.setFilterValue(event.target.value)
+            table.getColumn("displayName")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -426,13 +640,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isSubmitting}>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isActionSubmitting}>キャンセル</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleAlertAction} 
-              disabled={isSubmitting}
+              disabled={isActionSubmitting}
               className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}
             >
-              {isSubmitting ? '処理中...' : '続行'}
+              {isActionSubmitting ? '処理中...' : '続行'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -490,6 +704,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           </Form>
         </DialogContent>
       </Dialog>
+      <EditProfileDialog
+        member={selectedMember}
+        isOpen={isProfileDialogOpen}
+        onOpenChange={setIsProfileDialogOpen}
+        onProfileUpdate={handleProfileUpdate}
+       />
     </div>
   )
 }
