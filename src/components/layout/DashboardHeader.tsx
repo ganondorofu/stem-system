@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu, Club, Home, Users, Shield, BookMarked, LogOut, User } from 'lucide-react';
+import { Menu, Club, Home, Users, Shield, LogOut, User } from 'lucide-react';
 import type { FullUserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -13,7 +13,6 @@ const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
   { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
   { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
-  { href: '/dashboard/admin/generations', label: '期別ロール管理', icon: BookMarked, admin: true },
 ];
 
 export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
