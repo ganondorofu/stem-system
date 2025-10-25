@@ -37,8 +37,9 @@ export type GenerationRole = {
 };
 
 export type FullUserProfile = Member & {
-  displayName: string;
-  discordUsername: string;
+  raw_user_meta_data: {
+    [key: string]: any;
+  };
 };
 
 export type MemberWithTeams = Member & {
@@ -47,12 +48,8 @@ export type MemberWithTeams = Member & {
 
 export type MemberWithTeamsAndRelations = MemberWithTeams & {
   relations: MemberTeamRelation[];
-}
-
-export type MemberWithTeamsAndRelationsAndDisplayData = MemberWithTeamsAndRelations & {
   displayName: string;
 }
-
 
 export type DiscordMemberStatus = {
   discord_uid: string;

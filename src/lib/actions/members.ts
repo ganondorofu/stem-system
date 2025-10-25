@@ -82,7 +82,7 @@ async function syncDiscordRoles(discordUid: string) {
     }
 }
 
-async function syncDiscordNickname(discordUid: string, name: string, studentNumber: string | null | undefined, generation: number, status: number) {
+async function syncDiscordNickname(discordUid: string, name: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
@@ -164,7 +164,6 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
     const sanitizedName = name.replace(/\s/g, '');
     
-    // Ensure the generation role exists before creating the member
     await ensureGenerationRoleExists(finalGeneration);
 
     const { error: memberInsertError, data: newMember } = await supabase.from('members').insert({
@@ -174,8 +173,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         is_admin: false,
         status,
         student_number,
-        generation: finalGeneration,
-        raw_user_meta_data: { ...user.user_metadata, name: sanitizedName },
+        generation: finalGeneration
     }).select().single();
 
     if (memberInsertError) {
@@ -194,7 +192,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName, student_number, finalGeneration, status);
+    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName);
     await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
@@ -218,7 +216,6 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
     
     const { generation, student_number, status } = parsedData.data;
 
-    // Ensure the generation role exists before updating the member
     await ensureGenerationRoleExists(generation);
 
     const { error } = await supabase
@@ -235,11 +232,11 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
         return { error: 'プロフィールの更新に失敗しました。もう一度お試しください。' };
     }
     
-    const memberName = await getMemberName(user.id);
-    if(memberName){
-        await syncDiscordNickname(user.user_metadata.provider_id, memberName, student_number, generation, status);
+    const {data: member} = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
+    if(member){
+        await syncDiscordRoles(member.discord_uid);
     }
-    await syncDiscordRoles(user.user_metadata.provider_id);
+
 
     revalidatePath('/dashboard', 'layout');
     return { error: null };
@@ -260,7 +257,6 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
     
     const { generation, student_number, status } = values;
 
-    // Ensure the generation role exists before updating the member
     await ensureGenerationRoleExists(generation);
 
     const { error } = await supabase
@@ -273,11 +269,8 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
         return { error: 'メンバーの更新に失敗しました。' };
     }
     
-    // We need the member's discord_uid and name to sync
-    const { data: memberData } = await supabase.from('members').select('discord_uid, raw_user_meta_data').eq('supabase_auth_user_id', userId).single();
+    const { data: memberData } = await supabase.from('members').select('discord_uid').eq('supabase_auth_user_id', userId).single();
     if (memberData) {
-        const memberName = memberData.raw_user_meta_data.name || '';
-        await syncDiscordNickname(memberData.discord_uid, memberName, student_number, generation, status);
         await syncDiscordRoles(memberData.discord_uid);
     }
 
