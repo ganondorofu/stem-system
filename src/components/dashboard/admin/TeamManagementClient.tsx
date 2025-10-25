@@ -94,7 +94,10 @@ export function TeamManagementClient({
           <AccordionItem key={team.id} value={team.id}>
              <div className="flex items-center justify-between w-full pr-4 border-b">
                 <AccordionTrigger className='hover:no-underline flex-1 py-4'>
-                    <span className="font-semibold text-lg">{team.name}</span>
+                    <div className="flex flex-col text-left">
+                        <span className="font-semibold text-lg">{team.name}</span>
+                        <span className="text-xs text-muted-foreground font-mono mt-1">{team.discord_role_id}</span>
+                    </div>
                 </AccordionTrigger>
                 <div className='flex items-center gap-2 pl-4'>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenDialog(team); }}><Edit className="h-4 w-4" /></Button>
@@ -102,7 +105,6 @@ export function TeamManagementClient({
                 </div>
             </div>
             <AccordionContent>
-              <p className="text-muted-foreground mb-4">Discord ロール ID: {team.discord_role_id}</p>
               {/* Member and leader management UI would go here */}
               <p className="text-sm text-muted-foreground p-4 bg-muted rounded-md">メンバーと班長の割り当て機能は開発中です。</p>
             </AccordionContent>
