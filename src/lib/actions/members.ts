@@ -20,6 +20,7 @@ const registerSchema = z.object({
     grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
     generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。').optional(),
+    team_ids: z.array(z.string()).optional(),
 }).refine(data => {
     if (data.status === 0 || data.status === 1) {
         return !!data.grade;
@@ -29,7 +30,7 @@ const registerSchema = z.object({
     message: '学年は必須です。',
     path: ['grade'],
 }).refine(data => {
-    if (data.status === 2) {
+    if (data.status === 2) { // OB/OG
         return !!data.generation;
     }
     return true;
@@ -115,7 +116,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: errorMessage };
     }
     
-    const { status, name, grade, student_number, generation: directGeneration } = parsedData.data;
+    const { status, name, grade, student_number, generation: directGeneration, team_ids } = parsedData.data;
 
     let finalGeneration: number | null = null;
 
@@ -146,6 +147,20 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         console.error('Error creating member profile:', error);
         return { error: '部員情報の作成に失敗しました。' };
     }
+    
+    // Insert team relations if any
+    if (team_ids && team_ids.length > 0) {
+        const relations = team_ids.map(team_id => ({
+            member_id: user.id,
+            team_id: team_id
+        }));
+        const { error: relationError } = await supabase.from('member_team_relations').insert(relations);
+        if (relationError) {
+            console.error('Error creating member-team relations:', relationError);
+            // We can decide if this should be a critical error. For now, just log it.
+        }
+    }
+
 
     // Sync with Discord without waiting for it to finish
     await syncDiscord(user.user_metadata.provider_id, sanitizedName);
@@ -272,5 +287,3 @@ export async function deleteMember(userId: string) {
     revalidatePath('/dashboard/admin/members');
     return { error: null };
 }
-
-    
