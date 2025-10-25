@@ -53,9 +53,8 @@ export function TeamManagementClient({
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const { toast } = useToast();
-  const [isDeleting, setIsDeleting] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<string | null>(null);
-  const [isUpdatingLeader, setIsUpdatingLeader] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<TeamFormData>({
     resolver: zodResolver(teamSchema),
@@ -102,9 +101,9 @@ export function TeamManagementClient({
   }
 
   const handleDelete = async () => {
-    if (!teamToDelete || isDeleting) return;
+    if (!teamToDelete) return;
     
-    setIsDeleting(true);
+    setIsSubmitting(true);
     const result = await deleteTeam(teamToDelete);
     if (result.error) {
         toast({ title: 'エラー', description: result.error, variant: 'destructive' });
@@ -112,12 +111,12 @@ export function TeamManagementClient({
         toast({ title: '成功', description: '班を削除しました。' });
         setTeams(teams.filter(t => t.id !== teamToDelete));
     }
-    setIsDeleting(false);
+    setIsSubmitting(false);
     setTeamToDelete(null);
   };
   
   const handleLeaderChange = async (teamId: string, memberId: string | null) => {
-      setIsUpdatingLeader(true);
+      setIsSubmitting(true);
       const result = await updateTeamLeader(teamId, memberId);
       if (result.error) {
           toast({ title: 'エラー', description: result.error, variant: 'destructive' });
@@ -129,7 +128,7 @@ export function TeamManagementClient({
               setLeaders(leaders.filter(l => l.team_id !== teamId));
           }
       }
-      setIsUpdatingLeader(false);
+      setIsSubmitting(false);
   }
 
 
@@ -177,7 +176,7 @@ export function TeamManagementClient({
                         onSelect={(value) => handleLeaderChange(team.id, value === 'none' ? null : value)}
                         placeholder="班長を検索 (ID or 名前)..."
                         triggerClass="max-w-xs"
-                        disabled={isUpdatingLeader}
+                        disabled={isSubmitting}
                     />
                   <p className="text-sm text-muted-foreground">この班に所属しているメンバーの中から班長を選択できます。</p>
                 </div>
@@ -243,9 +242,9 @@ export function TeamManagementClient({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting} onClick={() => setTeamToDelete(null)}>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-              {isDeleting ? '削除中...' : '削除'}
+            <AlertDialogCancel onClick={() => setTeamToDelete(null)} disabled={isSubmitting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+              {isSubmitting ? '削除中...' : '削除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
