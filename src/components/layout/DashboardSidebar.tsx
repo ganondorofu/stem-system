@@ -16,7 +16,7 @@ const navItems = [
   { href: '/dashboard/admin/generations', label: '期別ロール', icon: BookMarked, admin: true },
 ];
 
-export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
+export default function DashboardSidebar({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
 
@@ -24,6 +24,8 @@ export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
+  
+  const isAdmin = user?.is_admin ?? false;
 
   return (
     <div className="hidden border-r bg-card md:block">
@@ -36,9 +38,10 @@ export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
         </div>
         <div className="flex-1">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-            {navItems.map((item) => {
-              if (item.admin && !user.is_admin) return null;
-              const isActive = pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard');
+            {user && navItems.map((item) => {
+              if (item.admin && !isAdmin) return null;
+              // Special handling for the profile page link to avoid matching register
+              const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
@@ -56,16 +59,18 @@ export default function DashboardSidebar({ user }: { user: FullUserProfile }) {
         </div>
         <div className="mt-auto p-4">
           <Separator className="my-4" />
-           <div className="flex items-center gap-3 mb-4">
+           {user && (
+            <div className="flex items-center gap-3 mb-4">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name} />
                 <AvatarFallback><User /></AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
                 <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
-                <p className="text-xs text-muted-foreground">{user.is_admin ? '管理者' : 'メンバー'}</p>
+                <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
               </div>
             </div>
+           )}
           <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             ログアウト

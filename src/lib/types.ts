@@ -45,3 +45,10 @@ export type MemberWithTeams = Member & {
   teams: Team[];
   is_leader_of: Team[];
 };
+
+export type DiscordMemberStatus = {
+  discord_uid: string;
+  is_in_server: boolean;
+  current_nickname: string | null;
+  current_roles: string[];
+};

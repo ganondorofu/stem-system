@@ -3,12 +3,59 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { redirect } from 'next/navigation';
 
 const profileSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
 });
+
+const registerSchema = z.object({
+    generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。'),
+    student_number: z.string().optional().nullable(),
+    status: z.coerce.number().int().min(0).max(1),
+});
+
+export async function registerNewMember(values: z.infer<typeof registerSchema>) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: '登録するにはログインする必要があります。' };
+    }
+     const { data: existingMember } = await supabase
+        .from('members')
+        .select('supabase_auth_user_id')
+        .eq('supabase_auth_user_id', user.id)
+        .single();
+
+    if (existingMember) {
+        return { error: 'このユーザーは既に登録済みです。' };
+    }
+
+    const parsedData = registerSchema.safeParse(values);
+    if (!parsedData.success) {
+        return { error: '無効なデータが提供されました。' };
+    }
+
+    const { error } = await supabase.from('members').insert({
+        supabase_auth_user_id: user.id,
+        discord_uid: user.user_metadata.provider_id,
+        avatar_url: user.user_metadata.avatar_url,
+        is_admin: false, // New members are never admins
+        ...parsedData.data,
+    });
+
+    if (error) {
+        console.error('Error creating member profile:', error);
+        return { error: '部員情報の作成に失敗しました。' };
+    }
+
+    revalidatePath('/dashboard', 'layout');
+    return { error: null };
+}
+
 
 export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
     const supabase = createClient();

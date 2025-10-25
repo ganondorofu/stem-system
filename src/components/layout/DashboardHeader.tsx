@@ -16,7 +16,7 @@ const navItems = [
   { href: '/dashboard/admin/generations', label: '期別ロール管理', icon: BookMarked, admin: true },
 ];
 
-export default function DashboardHeader({ user }: { user: FullUserProfile }) {
+export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
 
@@ -24,6 +24,8 @@ export default function DashboardHeader({ user }: { user: FullUserProfile }) {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
+  
+  const isAdmin = user?.is_admin ?? false;
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 md:hidden">
@@ -40,9 +42,9 @@ export default function DashboardHeader({ user }: { user: FullUserProfile }) {
               <Club className="h-6 w-6 text-primary" />
               <span className="sr-only">STEM研究部</span>
             </Link>
-            {navItems.map((item) => {
-              if (item.admin && !user.is_admin) return null;
-              const isActive = pathname === item.href;
+            {user && navItems.map((item) => {
+              if (item.admin && !isAdmin) return null;
+              const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
@@ -58,16 +60,18 @@ export default function DashboardHeader({ user }: { user: FullUserProfile }) {
             })}
           </nav>
           <div className="mt-auto">
-             <div className="flex items-center gap-3 mb-4">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name} />
-                <AvatarFallback><User /></AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
-                <p className="text-xs text-muted-foreground">{user.is_admin ? '管理者' : 'メンバー'}</p>
-              </div>
-            </div>
+             {user && (
+                <div className="flex items-center gap-3 mb-4">
+                <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name} />
+                    <AvatarFallback><User /></AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                    <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
+                    <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
+                </div>
+                </div>
+             )}
             <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               ログアウト

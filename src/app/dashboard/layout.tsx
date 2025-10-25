@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
-import type { FullUserProfile } from '@/lib/types';
+import type { FullUserProfile, Member } from '@/lib/types';
 import DashboardHeader from '@/components/layout/DashboardHeader';
-import { revalidatePath } from 'next/cache';
 
 export default async function DashboardLayout({
   children,
@@ -21,37 +20,15 @@ export default async function DashboardLayout({
     .from('members')
     .select('*')
     .eq('supabase_auth_user_id', user.id)
+    .is('deleted_at', null)
     .single();
 
-  if (!memberProfile) {
-    const { data: newMember, error: insertError } = await supabase
-      .from('members')
-      .insert({
-        supabase_auth_user_id: user.id,
-        discord_uid: user.user_metadata.provider_id,
-        avatar_url: user.user_metadata.avatar_url,
-        status: 1, // Default to High School
-        generation: 0, // Placeholder, user must update
-        is_admin: false, // Default to non-admin
-      })
-      .select()
-      .single();
-
-    if (insertError || !newMember) {
-      console.error("Error creating member profile:", insertError);
-      // It's better to show an error page or message than to redirect to login with a generic error
-      return redirect(`/login?error=${insertError?.message ?? 'Could not create user profile.'}`);
-    }
-    memberProfile = newMember;
-    // The redirect below is sufficient to trigger a re-render with the new profile data.
-    // revalidatePath('/dashboard', 'layout'); // This was causing the error.
-    return redirect('/dashboard?new=true');
-  }
-
-  const fullProfile: FullUserProfile = {
-    ...memberProfile,
+  // New user registration is now handled on the dashboard page
+  // We only build a partial profile here if the user exists
+  const fullProfile: FullUserProfile | null = memberProfile ? {
+    ...(memberProfile as Member),
     raw_user_meta_data: user.user_metadata,
-  };
+  } : null;
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
