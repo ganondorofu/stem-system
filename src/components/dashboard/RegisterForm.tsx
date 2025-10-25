@@ -200,7 +200,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                             <AlertTitle>期生の確認</AlertTitle>
                                             <AlertDescription>
                                                 {academicYear}年度の{watchedGrade}年生は、**{calculatedGeneration}期生**として登録されます。
-                                            </AlerDescription>
+                                            </AlertDescription>
                                         </Alert>
                                     )}
                                 </>
