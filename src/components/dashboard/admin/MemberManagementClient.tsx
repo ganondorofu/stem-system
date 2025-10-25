@@ -47,7 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useWatch } from "react-hook-form"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -56,7 +56,7 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 const profileSchema = z.object({
     status: z.coerce.number().int().min(0).max(2),
@@ -82,7 +82,7 @@ function calculateGeneration(status: number, grade: number, academicYear: number
     return null;
 }
 
-function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
+function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTeamsAndRelations, isOpen: boolean, onOpenChange: (isOpen: boolean) => void }) {
   const [displayName, setDisplayName] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -111,6 +111,7 @@ function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
 
 
   return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
     <DialogContent className="max-w-3xl">
       <DialogHeader>
         <DialogTitle>メンバープロフィール</DialogTitle>
@@ -195,6 +196,7 @@ function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
             </div>
         </div>
     </DialogContent>
+    </Dialog>
   )
 }
 
@@ -353,6 +355,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
 
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = React.useState(false)
 
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
@@ -394,6 +397,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setSelectedMember(member)
     setIsProfileDialogOpen(true);
   }
+
+  const handleEditProfileDialog = (member: MemberWithTeamsAndRelations) => {
+    setSelectedMember(member);
+    setIsEditProfileDialogOpen(true);
+  };
+
 
   const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>) => {
     setMembers(members.map(m => m.supabase_auth_user_id === updatedMember.supabase_auth_user_id ? {...m, ...updatedMember} : m));
@@ -497,44 +506,41 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       cell: ({ row }) => {
         const member = row.original
         return (
-          <Dialog>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
-                  <span className="sr-only">メニューを開く</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>操作</DropdownMenuLabel>
-                <DialogTrigger asChild>
-                   <DropdownMenuItem onSelect={() => setSelectedMember(member)}>プロフィールを表示</DropdownMenuItem>
-                </DialogTrigger>
-                 <DropdownMenuItem onClick={() => handleProfileDialog(member)}>
-                  プロフィールを編集
-                </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
-                  班を編集
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  setSelectedMember(member)
-                  setAlertAction("toggleAdmin")
-                  setIsAlertOpen(true)
-                }}>
-                  {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={() => {
-                  setSelectedMember(member)
-                  setAlertAction("delete")
-                  setIsAlertOpen(true)
-                }}>
-                  メンバーを削除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {selectedMember?.supabase_auth_user_id === member.supabase_auth_user_id && <ProfileDialog member={selectedMember} />}
-          </Dialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
+                <span className="sr-only">メニューを開く</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>操作</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => handleProfileDialog(member)}>
+                プロフィールを表示
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEditProfileDialog(member)}>
+                プロフィールを編集
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
+                班を編集
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setSelectedMember(member)
+                setAlertAction("toggleAdmin")
+                setIsAlertOpen(true)
+              }}>
+                {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => {
+                setSelectedMember(member)
+                setAlertAction("delete")
+                setIsAlertOpen(true)
+              }}>
+                メンバーを削除
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
     },
@@ -553,14 +559,34 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       sorting,
       columnFilters,
     },
+    initialState: {
+      columnVisibility: {
+        'displayName': false
+      }
+    }
   })
+
+  // displayName is now fetched on client, so we use a different value for filtering
+  const filterValue = (table.getColumn("displayName")?.getFilterValue() as string) ?? "";
+  React.useEffect(() => {
+    const filteredData = initialMembers.filter(member => {
+        const discordUid = member.discord_uid.toLowerCase();
+        const email = member.email?.toLowerCase() || '';
+        const cachedName = displayNameCache[member.discord_uid]?.toLowerCase() || '';
+        const search = filterValue.toLowerCase();
+
+        return discordUid.includes(search) || email.includes(search) || cachedName.includes(search);
+    });
+    setMembers(filteredData);
+  }, [filterValue, initialMembers, displayNameCache]);
+
 
   return (
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="名前で絞り込み..."
-          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
+          placeholder="名前, Email, Discord IDで絞り込み..."
+          value={filterValue}
           onChange={(event) =>
             table.getColumn("displayName")?.setFilterValue(event.target.value)
           }
@@ -705,12 +731,21 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           </Form>
         </DialogContent>
       </Dialog>
-      <EditProfileDialog
-        member={selectedMember}
-        isOpen={isProfileDialogOpen}
-        onOpenChange={setIsProfileDialogOpen}
-        onProfileUpdate={handleProfileUpdate}
-       />
+      {selectedMember && (
+          <>
+            <ProfileDialog 
+                member={selectedMember} 
+                isOpen={isProfileDialogOpen}
+                onOpenChange={setIsProfileDialogOpen}
+            />
+            <EditProfileDialog
+              member={selectedMember}
+              isOpen={isEditProfileDialogOpen}
+              onOpenChange={setIsEditProfileDialogOpen}
+              onProfileUpdate={handleProfileUpdate}
+            />
+          </>
+      )}
     </div>
   )
 }
