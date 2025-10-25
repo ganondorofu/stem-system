@@ -82,3 +82,26 @@ export async function deleteTeam(teamId: string): Promise<{ error: string | null
         return { error: e.message };
     }
 }
+
+
+export async function updateTeamLeader(teamId: string, memberId: string | null): Promise<{ error: string | null }> {
+    try {
+        await checkAdmin();
+        const supabase = createClient();
+
+        // Remove existing leader for the team first
+        const { error: deleteError } = await supabase.from('team_leaders').delete().eq('team_id', teamId);
+        if (deleteError) throw deleteError;
+
+        // If a new leader is selected, insert the new record
+        if (memberId) {
+            const { error: insertError } = await supabase.from('team_leaders').insert({ team_id: teamId, member_id: memberId });
+            if (insertError) throw insertError;
+        }
+
+        revalidatePath('/dashboard/admin/teams');
+        return { error: null };
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}

@@ -8,6 +8,9 @@ export type Member = {
   is_admin: boolean;
   joined_at: string;
   deleted_at: string | null;
+  raw_user_meta_data: {
+    [key: string]: any;
+  };
 };
 
 export type Team = {
@@ -31,20 +34,17 @@ export type GenerationRole = {
   discord_role_id: string;
 };
 
-export type FullUserProfile = Member & {
-  raw_user_meta_data: {
-    [key: string]: any;
-    name: string;
-    avatar_url: string;
-    user_name: string;
-    provider_id: string;
-  };
-};
+export type FullUserProfile = Member;
 
 export type MemberWithTeams = Member & {
   teams: Team[];
-  is_leader_of: Team[];
 };
+
+export type MemberWithTeamsAndRelations = MemberWithTeams & {
+  name: string;
+  relations: MemberTeamRelation[];
+}
+
 
 export type DiscordMemberStatus = {
   discord_uid: string;
@@ -52,5 +52,3 @@ export type DiscordMemberStatus = {
   current_nickname: string | null;
   current_roles: string[];
 };
-
-    
