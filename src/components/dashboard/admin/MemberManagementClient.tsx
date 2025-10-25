@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { Member, Team, MemberWithTeamsAndRelations } from "@/lib/types"
+import type { MemberWithTeamsAndRelationsAndDisplayData, Team } from "@/lib/types"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,27 +48,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
 import { useForm } from "react-hook-form"
 
 
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelationsAndDisplayData[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
+  const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelationsAndDisplayData | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
   
   const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
   const teamForm = useForm<{ team_ids: string[] }>()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
   const handleAlertAction = async () => {
-    if (!selectedMember) return
+    if (!selectedMember || isSubmitting) return
+    setIsSubmitting(true)
     let result;
     if (alertAction === "delete") {
       result = await deleteMember(selectedMember.supabase_auth_user_id)
@@ -88,18 +89,20 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       variant: result.error ? "destructive" : "default",
     })
     
+    setIsSubmitting(false)
     setIsAlertOpen(false)
     setSelectedMember(null)
   }
   
-  const handleTeamDialog = (member: MemberWithTeamsAndRelations) => {
+  const handleTeamDialog = (member: MemberWithTeamsAndRelationsAndDisplayData) => {
     setSelectedMember(member)
     teamForm.reset({ team_ids: member.teams.map(t => t.id) })
     setIsTeamDialogOpen(true)
   }
 
   const handleTeamUpdate = async (values: {team_ids: string[]}) => {
-    if (!selectedMember) return;
+    if (!selectedMember || teamForm.formState.isSubmitting) return;
+
     const result = await updateMemberTeams(selectedMember.supabase_auth_user_id, values.team_ids);
     if (result.error) {
       toast({ title: 'エラー', description: result.error, variant: 'destructive' });
@@ -119,11 +122,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     }
   }
 
-  const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
+  const columns: ColumnDef<MemberWithTeamsAndRelationsAndDisplayData>[] = [
      {
-      accessorKey: "raw_user_meta_data.name",
+      accessorKey: "displayName",
       header: "氏名",
-      cell: ({ row }) => row.original.raw_user_meta_data.name,
+      cell: ({ row }) => row.original.displayName,
     },
     {
       accessorKey: "generation",
@@ -218,9 +221,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       <div className="flex items-center py-4">
         <Input
           placeholder="氏名 or 学籍番号で絞り込み..."
-          value={(table.getColumn("raw_user_meta_data_name")?.getFilterValue() as string) ?? ""}
+          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("raw_user_meta_data_name")?.setFilterValue(event.target.value)
+            table.getColumn("displayName")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -299,9 +302,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAlertAction} className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}>
-              続行
+            <AlertDialogCancel disabled={isSubmitting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleAlertAction} 
+              disabled={isSubmitting}
+              className={alertAction === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}
+            >
+              {isSubmitting ? '処理中...' : '続行'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -310,7 +317,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <DialogContent>
           <DialogHeader>
             <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
+            <DialogDescription>{selectedMember?.displayName}さんの所属する班を選択してください。</DialogDescription>
           </DialogHeader>
           <Form {...teamForm}>
             <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
@@ -345,8 +352,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>キャンセル</Button>
-                <Button type="submit">保存</Button>
+                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)} disabled={teamForm.formState.isSubmitting}>キャンセル</Button>
+                <Button type="submit" disabled={teamForm.formState.isSubmitting}>
+                  {teamForm.formState.isSubmitting ? '保存中...' : '保存'}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
