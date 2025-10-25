@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 // Admin client using the service role key
-export function createAdminClient() {
+export async function createAdminClient() {
     const cookieStore = cookies()
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -21,26 +21,19 @@ export function createAdminClient() {
                 persistSession: false,
             },
             cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
+                getAll() {
+                  return cookieStore.getAll()
                 },
-                set(name: string, value: string, options: CookieOptions) {
-                    try {
-                      cookieStore.set({ name, value, ...options })
-                    } catch (error) {
-                      // The `set` method was called from a Server Component.
-                      // This can be ignored if you have middleware refreshing
-                      // user sessions.
-                    }
-                },
-                remove(name: string, options: CookieOptions) {
-                    try {
-                      cookieStore.set({ name, value: '', ...options })
-                    } catch (error) {
-                      // The `delete` method was called from a Server Component.
-                      // This can be ignored if you have middleware refreshing
-                      // user sessions.
-                    }
+                setAll(cookiesToSet) {
+                  try {
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                      cookieStore.set(name, value, options)
+                    )
+                  } catch {
+                    // The `set` method was called from a Server Component.
+                    // This can be ignored if you have middleware refreshing
+                    // user sessions.
+                  }
                 },
             },
         }
@@ -48,7 +41,7 @@ export function createAdminClient() {
 }
 
 
-export function createClient() {
+export async function createClient() {
   const cookieStore = cookies()
 
   return createServerClient(
@@ -59,23 +52,16 @@ export function createClient() {
         schema: 'member',
       },
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          return cookieStore.getAll()
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
           } catch (error) {
             // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
-            // The `delete` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
           }

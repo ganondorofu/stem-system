@@ -5,8 +5,8 @@ import type { Member, Team, MemberWithTeamsAndRelations, MemberTeamRelation } fr
 import { createClient } from '@/lib/supabase/server';
 
 async function getMembersData() {
-    const supabase = createClient();
-    const supabaseAdmin = createAdminClient();
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     
     const { data: members, error: membersError } = await supabase
         .from('members')
