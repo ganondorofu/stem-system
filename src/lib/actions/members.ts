@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+const studentNumberRegex = /^[0-9]+$/;
+
 // Schema for updating own profile (allows changing status to OB/OG)
 const profileSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
@@ -16,7 +18,7 @@ const registerSchema = z.object({
     name: z.string().min(1, '氏名は必須です。'),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
-    student_number: z.string().optional().nullable(),
+    student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
     generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。').optional(),
 }).refine(data => {
     if (data.status === 0 || data.status === 1) {
@@ -108,7 +110,9 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     const parsedData = registerSchema.safeParse(values);
     if (!parsedData.success) {
         console.error("Invalid registration data:", parsedData.error.flatten());
-        return { error: '無効なデータが提供されました。' };
+        const firstError = parsedData.error.flatten().fieldErrors;
+        const errorMessage = Object.values(firstError)[0]?.[0] || '無効なデータが提供されました。';
+        return { error: errorMessage };
     }
     
     const { status, name, grade, student_number, generation: directGeneration } = parsedData.data;

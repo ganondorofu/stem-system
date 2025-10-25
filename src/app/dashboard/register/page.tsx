@@ -15,11 +15,13 @@ import { useEffect, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 
+const studentNumberRegex = /^[0-9]+$/;
+
 const registerSchema = z.object({
     name: z.string().min(1, '氏名は必須です。'),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
-    student_number: z.string().optional().nullable(),
+    student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
     generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。').optional(),
 }).refine(data => {
     if (data.status === 0 || data.status === 1) { // Junior High or High School
@@ -183,7 +185,7 @@ export default function RegisterPage() {
                                                 <FormControl>
                                                     <Input placeholder="あなたの学籍番号" {...field} value={field.value ?? ''} />
                                                 </FormControl>
-                                                <FormDescription>Discordのニックネームに使用されます。</FormDescription>
+                                                <FormDescription>Discordのニックネームに使用されます。半角数字のみ入力してください。</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -227,5 +229,3 @@ export default function RegisterPage() {
         </div>
     );
 }
-
-    
