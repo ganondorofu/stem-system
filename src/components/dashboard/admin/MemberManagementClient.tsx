@@ -68,8 +68,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
   const handleAlertAction = async () => {
-    if (!selectedMember || isSubmitting) return
-    setIsSubmitting(true)
+    if (!selectedMember) return;
+    setIsSubmitting(true);
     let result;
     if (alertAction === "delete") {
       result = await deleteMember(selectedMember.supabase_auth_user_id)
@@ -169,7 +169,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmitting}>
                 <span className="sr-only">メニューを開く</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -302,7 +302,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isSubmitting}>キャンセル</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleAlertAction} 
               disabled={isSubmitting}

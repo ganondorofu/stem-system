@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import type { GenerationRole } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -89,7 +89,7 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
                     />
                   </TableCell>
                   <TableCell>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={form.formState.isSubmitting}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -104,6 +104,7 @@ export function GenerationManagementClient({ initialRoles }: { initialRoles: Gen
                 type="button"
                 variant="outline"
                 onClick={() => append({ generation: 0, discord_role_id: '' })}
+                disabled={form.formState.isSubmitting}
             >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 行を追加
