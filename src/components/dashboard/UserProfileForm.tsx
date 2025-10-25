@@ -64,7 +64,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                         </Avatar>
                         <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
-                        <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name}</p>
+                        <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name.split('#')[0]}</p>
                         <p className="text-muted-foreground text-sm mt-2">{new Date(user.joined_at).toLocaleDateString()} に参加</p>
                     </CardContent>
                 </Card>
@@ -93,7 +93,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                                 <FormItem>
                                     <FormLabel>学籍番号</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="あなたの学籍番号" {...field} />
+                                        <Input placeholder="あなたの学籍番号" {...field} value={field.value ?? ''} />
                                     </FormControl>
                                     <FormDescription>任意入力です。</FormDescription>
                                     <FormMessage />
