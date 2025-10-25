@@ -108,7 +108,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
       2: { label: "OB/OG", icon: GraduationCap }
   };
   const { label: statusLabel, icon: StatusIcon } = statusMap[member.status] || { label: "不明", icon: User };
-  const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid || '不明';
+  const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.raw_user_meta_data?.name || '不明';
 
 
   return (
@@ -344,7 +344,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
   const [isActionSubmitting, setIsActionSubmitting] = React.useState(false);
   const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
@@ -442,6 +441,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const discordUid = member.discord_uid;
     const cachedName = displayNameCache[discordUid];
     const isLoading = loadingDisplayNames[discordUid];
+    const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid;
+
 
     React.useEffect(() => {
       if (!cachedName && !isLoading) {
@@ -472,7 +473,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         ) : (
           <div className="flex flex-col">
             <span className="font-medium">{cachedName}</span>
-            <span className="text-xs text-muted-foreground font-mono">{member.discord_uid}</span>
+            <span className="text-xs text-muted-foreground font-mono">@{discordUsername}</span>
           </div>
         )}
       </div>
@@ -564,11 +565,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
     state: {
       sorting,
       columnFilters,
-      columnVisibility,
     },
   })
 
@@ -576,12 +575,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const filterValue = (table.getColumn("displayName")?.getFilterValue() as string) ?? "";
   React.useEffect(() => {
     const filteredData = initialMembers.filter(member => {
-        const discordUid = member.discord_uid.toLowerCase();
+        const discordUsername = (member.raw_user_meta_data?.user_name || '').toLowerCase();
         const email = member.email?.toLowerCase() || '';
         const cachedName = displayNameCache[member.discord_uid]?.toLowerCase() || '';
         const search = filterValue.toLowerCase();
 
-        return discordUid.includes(search) || email.includes(search) || cachedName.includes(search);
+        return discordUsername.includes(search) || email.includes(search) || cachedName.includes(search);
     });
     setMembers(filteredData);
   }, [filterValue, initialMembers, displayNameCache]);
@@ -591,7 +590,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="名前, Email, Discord IDで絞り込み..."
+          placeholder="名前, Email, Discordユーザー名で絞り込み..."
           value={filterValue}
           onChange={(event) =>
             table.getColumn("displayName")?.setFilterValue(event.target.value)
