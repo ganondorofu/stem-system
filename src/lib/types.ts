@@ -41,7 +41,6 @@ export type MemberWithTeams = Member & {
 };
 
 export type MemberWithTeamsAndRelations = MemberWithTeams & {
-  name: string;
   relations: MemberTeamRelation[];
 }
 

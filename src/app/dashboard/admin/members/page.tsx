@@ -44,7 +44,7 @@ async function getMembersData() {
 
         return {
             ...member,
-            name: user?.user_metadata?.name || '不明なユーザー',
+            raw_user_meta_data: user?.user_metadata || {},
             relations: memberRelations,
             teams: memberTeams,
         };

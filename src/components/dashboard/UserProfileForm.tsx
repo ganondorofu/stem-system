@@ -53,6 +53,8 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
       1: "高校生",
       2: "OB/OG"
     };
+    
+    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
 
     return (
         <div className="grid md:grid-cols-3 gap-8">
@@ -64,7 +66,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                         </Avatar>
                         <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
-                        <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name.split('#')[0]}</p>
+                        <p className="text-muted-foreground">@{discordUsername}</p>
                         <p className="text-muted-foreground text-sm mt-2">{new Date(user.joined_at).toLocaleDateString()} に参加</p>
                     </CardContent>
                 </Card>
