@@ -13,7 +13,13 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.full_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
+    // Check for user_name (e.g., "username#0") and split it, otherwise fallback to other names.
+    const discordUsername = user.raw_user_meta_data?.user_name?.includes('#') 
+        ? user.raw_user_meta_data.user_name.split('#')[0] 
+        : user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
+        
+    const displayName = user.raw_user_meta_data.name || '名前不明';
+
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
 
     return (
@@ -22,10 +28,10 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                 <Card className="overflow-hidden">
                     <CardContent className="pt-6 flex flex-col items-center text-center">
                         <Avatar className="w-32 h-32 mb-4 border-4 border-primary/20">
-                            <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name}/>
+                            <AvatarImage src={user.avatar_url ?? undefined} alt={displayName}/>
                             <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                         </Avatar>
-                        <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
+                        <h2 className="text-2xl font-bold font-headline">{displayName}</h2>
                         <p className="text-muted-foreground">@{discordUsername}</p>
                     </CardContent>
                 </Card>
