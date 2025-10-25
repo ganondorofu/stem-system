@@ -332,28 +332,33 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 name="team_ids"
                 render={() => (
                   <FormItem className="space-y-4 py-4">
-                    {allTeams.map(team => (
-                      <FormField
-                        key={team.id}
-                        control={teamForm.control}
-                        name="team_ids"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(team.id)}
-                                onCheckedChange={checked => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), team.id])
-                                    : field.onChange(field.value?.filter(id => id !== team.id))
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">{team.name}</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    ))}
+                    <div className="grid grid-cols-2 gap-4">
+                      {allTeams.map(team => (
+                        <FormField
+                          key={team.id}
+                          control={teamForm.control}
+                          name="team_ids"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 hover:bg-accent hover:text-accent-foreground transition-colors">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(team.id)}
+                                  onCheckedChange={checked => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), team.id])
+                                      : field.onChange(field.value?.filter(id => id !== team.id))
+                                  }}
+                                  id={`team-${team.id}`}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal w-full cursor-pointer" htmlFor={`team-${team.id}`}>
+                                {team.name}
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
                   </FormItem>
                 )}
               />
