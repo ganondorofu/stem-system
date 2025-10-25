@@ -79,7 +79,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                                 <FormItem>
                                     <FormLabel>期</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="例: 50" {...field} />
+                                        <Input type="number" placeholder="例: 50" {...field} value={field.value ?? ''} />
                                     </FormControl>
                                     <FormDescription>あなたの期を入力してください。</FormDescription>
                                     <FormMessage />
@@ -106,7 +106,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>ステータス</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                                <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={String(field.value)}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="現在のステータスを選択" />
@@ -131,5 +131,3 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
         </div>
     );
 }
-
-    
