@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { MemberWithTeamsAndRelationsAndDisplayData, Team } from "@/lib/types"
+import type { MemberWithTeamsAndRelations, Team } from "@/lib/types"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,18 +52,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { useForm } from "react-hook-form"
 
 
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelationsAndDisplayData[], allTeams: Team[] }) {
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelationsAndDisplayData | null>(null)
+  const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
   
   const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
   const teamForm = useForm<{ team_ids: string[] }>()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
+
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
@@ -94,14 +96,15 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setSelectedMember(null)
   }
   
-  const handleTeamDialog = (member: MemberWithTeamsAndRelationsAndDisplayData) => {
+  const handleTeamDialog = (member: MemberWithTeamsAndRelations) => {
     setSelectedMember(member)
     teamForm.reset({ team_ids: member.teams.map(t => t.id) })
     setIsTeamDialogOpen(true)
   }
 
   const handleTeamUpdate = async (values: {team_ids: string[]}) => {
-    if (!selectedMember || teamForm.formState.isSubmitting) return;
+    if (!selectedMember) return;
+    setIsTeamSubmitting(true);
 
     const result = await updateMemberTeams(selectedMember.supabase_auth_user_id, values.team_ids);
     if (result.error) {
@@ -120,13 +123,18 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       }));
       setIsTeamDialogOpen(false);
     }
+    setIsTeamSubmitting(false);
   }
 
-  const columns: ColumnDef<MemberWithTeamsAndRelationsAndDisplayData>[] = [
+  const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "displayName",
+      accessorKey: "raw_user_meta_data.name",
       header: "氏名",
-      cell: ({ row }) => row.original.displayName,
+      cell: ({ row }) => {
+        const name = row.original.raw_user_meta_data.name;
+        // In case name is not available in raw_user_meta_data, you can have a fallback
+        return name || '名前不明';
+      },
     },
     {
       accessorKey: "generation",
@@ -221,9 +229,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       <div className="flex items-center py-4">
         <Input
           placeholder="氏名 or 学籍番号で絞り込み..."
-          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
+          value={(table.getColumn("raw_user_meta_data.name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("displayName")?.setFilterValue(event.target.value)
+            table.getColumn("raw_user_meta_data.name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -317,7 +325,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <DialogContent>
           <DialogHeader>
             <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.displayName}さんの所属する班を選択してください。</DialogDescription>
+            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
           </DialogHeader>
           <Form {...teamForm}>
             <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
@@ -352,9 +360,9 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)} disabled={teamForm.formState.isSubmitting}>キャンセル</Button>
-                <Button type="submit" disabled={teamForm.formState.isSubmitting}>
-                  {teamForm.formState.isSubmitting ? '保存中...' : '保存'}
+                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)} disabled={isTeamSubmitting}>キャンセル</Button>
+                <Button type="submit" disabled={isTeamSubmitting}>
+                  {isTeamSubmitting ? '保存中...' : '保存'}
                 </Button>
               </DialogFooter>
             </form>
