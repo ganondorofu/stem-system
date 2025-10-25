@@ -1,10 +1,12 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { MemberManagementClient } from '@/components/dashboard/admin/MemberManagementClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Member, Team } from '@/lib/types';
+import { createClient } from '@/lib/supabase/server';
 
 async function getMembersData() {
     const supabase = createClient();
+    const supabaseAdmin = createAdminClient();
     
     const { data: members, error: membersError } = await supabase
         .from('members')
@@ -15,23 +17,23 @@ async function getMembersData() {
 
     if (membersError) {
         console.error('Error fetching members:', membersError);
-        return { profiles: [], teams: [] };
+        throw membersError;
     }
 
     // Fetch user details from auth.users to get their names
     const userIds = members.map(m => m.supabase_auth_user_id);
-    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers({
+    const { data: { users: usersData }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
       perPage: userIds.length,
     });
     
     if (usersError) {
         console.error('Error fetching user metadata:', usersError);
-        // Continue without names if this fails
+        throw usersError;
     }
 
     const profilesWithNames = members.map(member => {
-        const user = usersData?.users.find(u => u.id === member.supabase_auth_user_id);
+        const user = usersData.find(u => u.id === member.supabase_auth_user_id);
         return {
             ...member,
             name: user?.user_metadata?.name || '不明なユーザー',
