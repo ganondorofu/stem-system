@@ -12,7 +12,6 @@ import {
   type ColumnFiltersState,
   type SortingState,
 } from "@tanstack/react-table"
-
 import {
   Table,
   TableBody,
@@ -32,10 +31,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus, updateMemberTeams } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -50,6 +49,125 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
 import { useForm } from "react-hook-form"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+
+function ProfileDialog({ member }: { member: MemberWithTeamsAndRelations }) {
+  const [displayName, setDisplayName] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (member) {
+      setIsLoading(true);
+      getMemberDisplayName(member.discord_uid)
+        .then(name => {
+          setDisplayName(name);
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setDisplayName(member.raw_user_meta_data?.user_name?.split('#')[0] || '不明');
+          setIsLoading(false);
+        });
+    }
+  }, [member]);
+
+  const statusMap: { [key: number]: { label: string, icon: React.ElementType } } = {
+      0: { label: "中学生", icon: School },
+      1: { label: "高校生", icon: School },
+      2: { label: "OB/OG", icon: GraduationCap }
+  };
+  const { label: statusLabel, icon: StatusIcon } = statusMap[member.status] || { label: "不明", icon: User };
+  const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid || '不明';
+
+
+  return (
+    <DialogContent className="max-w-3xl">
+      <DialogHeader>
+        <DialogTitle>メンバープロフィール</DialogTitle>
+        <DialogDescription>
+          {displayName || member.raw_user_meta_data?.name || 'メンバー'}の詳細情報です。
+        </DialogDescription>
+      </DialogHeader>
+        <div className="grid md:grid-cols-3 gap-6 py-4">
+            <div className="md:col-span-1 flex flex-col items-center text-center">
+                <Avatar className="w-32 h-32 mb-4 border-4 border-primary/20 shadow-lg">
+                    <AvatarImage src={member.avatar_url ?? undefined} alt={displayName ?? ''}/>
+                    <AvatarFallback className="text-4xl"><User/></AvatarFallback>
+                </Avatar>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-40" />
+                ) : (
+                  <h2 className="text-2xl font-bold font-headline">{displayName}</h2>
+                )}
+                <p className="text-muted-foreground">@{discordUsername}</p>
+                {member.is_admin && <Badge variant="destructive" className="mt-2"><Star className="w-3 h-3 mr-1"/>管理者</Badge>}
+            </div>
+            <div className="md:col-span-2 space-y-4">
+                 <Card>
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-xl">基本情報</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <Building className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">期</p>
+                                <p className="font-semibold">{member.generation}期生</p>
+                            </div>
+                        </div>
+                        <Separator />
+                        <div className="flex items-center gap-4">
+                            <StatusIcon className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">ステータス</p>
+                                <p className="font-semibold">{statusLabel}</p>
+                            </div>
+                        </div>
+                        {member.student_number && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center gap-4">
+                                    <School className="w-5 h-5 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">学籍番号</p>
+                                        <p className="font-semibold">{member.student_number}</p>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                         <Separator />
+                         <div className="flex items-center gap-4">
+                            <Shield className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">所属班</p>
+                                {member.teams && member.teams.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {member.teams.map(team => (
+                                            <Badge key={team.id} variant="secondary">{team.name}</Badge>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="font-semibold">未所属</p>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-xl">連絡先</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm font-medium">{member.email}</p>
+                        <p className="text-sm text-muted-foreground">Supabase登録メールアドレス</p>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    </DialogContent>
+  )
+}
 
 
 export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
@@ -65,7 +183,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const teamForm = useForm<{ team_ids: string[] }>()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
-
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
 
@@ -128,10 +245,20 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const columns: ColumnDef<MemberWithTeamsAndRelations>[] = [
      {
-      accessorKey: "displayName",
-      header: "氏名",
+      accessorKey: "discord_uid",
+      header: "メンバー",
       cell: ({ row }) => {
-        return row.original.displayName || '名前不明';
+        const member = row.original;
+        const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid;
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarImage src={member.avatar_url || ''} />
+              <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
+            </Avatar>
+            <span className="font-medium">{discordUsername}</span>
+          </div>
+        )
       },
     },
     {
@@ -142,21 +269,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-    },
-    {
-      accessorKey: "student_number",
-      header: "学籍番号",
-    },
-    {
-      accessorKey: "teams",
-      header: "所属班",
-      cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.teams.map(team => (
-            <Badge key={team.id} variant="secondary">{team.name}</Badge>
-          ))}
-        </div>
-      )
     },
     {
       accessorKey: "status",
@@ -173,35 +285,41 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       cell: ({ row }) => {
         const member = row.original
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmitting}>
-                <span className="sr-only">メニューを開く</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>操作</DropdownMenuLabel>
-               <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
-                班を編集
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                setSelectedMember(member)
-                setAlertAction("toggleAdmin")
-                setIsAlertOpen(true)
-              }}>
-                {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => {
-                setSelectedMember(member)
-                setAlertAction("delete")
-                setIsAlertOpen(true)
-              }}>
-                メンバーを削除
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmitting}>
+                  <span className="sr-only">メニューを開く</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>操作</DropdownMenuLabel>
+                <DialogTrigger asChild>
+                   <DropdownMenuItem>プロフィールを表示</DropdownMenuItem>
+                </DialogTrigger>
+                 <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
+                  班を編集
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setSelectedMember(member)
+                  setAlertAction("toggleAdmin")
+                  setIsAlertOpen(true)
+                }}>
+                  {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onClick={() => {
+                  setSelectedMember(member)
+                  setAlertAction("delete")
+                  setIsAlertOpen(true)
+                }}>
+                  メンバーを削除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <ProfileDialog member={member} />
+          </Dialog>
         )
       },
     },
@@ -226,10 +344,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="氏名で絞り込み..."
-          value={(table.getColumn("displayName")?.getFilterValue() as string) ?? ""}
+          placeholder="Discord IDで絞り込み..."
+          value={(table.getColumn("discord_uid")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("displayName")?.setFilterValue(event.target.value)
+            table.getColumn("discord_uid")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -323,7 +441,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <DialogContent>
           <DialogHeader>
             <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.displayName}さんの所属する班を選択してください。</DialogDescription>
+            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
           </DialogHeader>
           <Form {...teamForm}>
             <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
