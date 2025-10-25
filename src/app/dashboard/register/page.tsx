@@ -210,7 +210,10 @@ export default function RegisterPage() {
                                         <FormItem>
                                             <FormLabel>期</FormLabel>
                                             <FormControl>
-                                                <Input type="number" placeholder="例: 50" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)} />
+                                                <Input type="number" placeholder="例: 50" {...field} value={field.value ?? ''} onChange={e => {
+                                                    const value = parseInt(e.target.value, 10);
+                                                    field.onChange(isNaN(value) ? undefined : value);
+                                                }} />
                                             </FormControl>
                                             <FormDescription>あなたの期を入力してください。（例: 50期生なら50）</FormDescription>
                                             <FormMessage />
