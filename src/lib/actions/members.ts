@@ -1,8 +1,10 @@
+
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { ensureGenerationRoleExists } from './generations';
 
 const studentNumberRegex = /^[0-9]+$/;
 
@@ -80,7 +82,7 @@ async function syncDiscordRoles(discordUid: string) {
     }
 }
 
-async function syncDiscordNickname(discordUid: string, name: string) {
+async function syncDiscordNickname(discordUid: string, name: string, studentNumber: string | null | undefined, generation: number, status: number) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
@@ -88,16 +90,23 @@ async function syncDiscordNickname(discordUid: string, name: string) {
         console.error('API URL or Bearer Token is not configured for Discord nickname sync.');
         return;
     }
+    
+    // The bot will construct the full nickname based on DB data. We just provide the name.
+    const body = {
+        discord_uid: discordUid,
+        name: name,
+    };
 
     try {
         const res = await fetch(`${apiUrl}/api/nickname/update`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ discord_uid: discordUid, name: name }),
+            body: JSON.stringify(body),
             cache: 'no-store',
         });
         if (!res.ok) {
-            console.error('Failed to update nickname:', res.status, await res.text());
+            const errorBody = await res.text();
+            console.error('Failed to update nickname:', res.status, errorBody);
         }
     } catch(e) {
         console.error('Error during nickname update:', e);
@@ -154,6 +163,9 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     }
 
     const sanitizedName = name.replace(/\s/g, '');
+    
+    // Ensure the generation role exists before creating the member
+    await ensureGenerationRoleExists(finalGeneration);
 
     const { error: memberInsertError, data: newMember } = await supabase.from('members').insert({
         supabase_auth_user_id: user.id,
@@ -182,7 +194,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName);
+    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName, student_number, finalGeneration, status);
     await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
@@ -203,13 +215,18 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
     if (!parsedData.success) {
         return { error: '無効なデータが提供されました。' };
     }
+    
+    const { generation, student_number, status } = parsedData.data;
+
+    // Ensure the generation role exists before updating the member
+    await ensureGenerationRoleExists(generation);
 
     const { error } = await supabase
         .from('members')
         .update({
-            generation: parsedData.data.generation,
-            student_number: parsedData.data.student_number,
-            status: parsedData.data.status,
+            generation: generation,
+            student_number: student_number,
+            status: status,
         })
         .eq('supabase_auth_user_id', user.id);
 
@@ -220,7 +237,7 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
     
     const memberName = await getMemberName(user.id);
     if(memberName){
-        await syncDiscordNickname(user.user_metadata.provider_id, memberName);
+        await syncDiscordNickname(user.user_metadata.provider_id, memberName, student_number, generation, status);
     }
     await syncDiscordRoles(user.user_metadata.provider_id);
 
@@ -240,6 +257,11 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
     if (!admin?.is_admin) {
         return { error: '管理者権限が必要です。' };
     }
+    
+    const { generation, student_number, status } = values;
+
+    // Ensure the generation role exists before updating the member
+    await ensureGenerationRoleExists(generation);
 
     const { error } = await supabase
         .from('members')
@@ -249,6 +271,14 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
     if (error) {
         console.error('Error updating member by admin:', error);
         return { error: 'メンバーの更新に失敗しました。' };
+    }
+    
+    // We need the member's discord_uid and name to sync
+    const { data: memberData } = await supabase.from('members').select('discord_uid, raw_user_meta_data').eq('supabase_auth_user_id', userId).single();
+    if (memberData) {
+        const memberName = memberData.raw_user_meta_data.name || '';
+        await syncDiscordNickname(memberData.discord_uid, memberName, student_number, generation, status);
+        await syncDiscordRoles(memberData.discord_uid);
     }
 
     revalidatePath('/dashboard/admin/members');

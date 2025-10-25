@@ -14,6 +14,59 @@ async function checkAdmin() {
     if (!admin?.is_admin) throw new Error('Administrator privileges required.');
 }
 
+async function callCreateGenerationApi(generation: number): Promise<GenerationRole | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token) {
+        throw new Error('API URL or Bearer Token is not configured.');
+    }
+
+    const response = await fetch(`${apiUrl}/api/generation`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ generation }),
+        cache: 'no-store',
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Discordロールの作成に失敗しました。');
+    }
+
+    return {
+        generation: result.generation,
+        discord_role_id: result.role_id,
+    };
+}
+
+
+export async function ensureGenerationRoleExists(generation: number): Promise<void> {
+    const supabase = await createClient();
+    const { data: existingRole } = await supabase
+        .from('generation_roles')
+        .select('generation')
+        .eq('generation', generation)
+        .single();
+    
+    if (!existingRole) {
+        try {
+            await callCreateGenerationApi(generation);
+            // The API saves to the DB, but revalidation is good.
+            revalidatePath('/dashboard/admin/generations');
+        } catch (e: any) {
+            // This might fail if another process created it in the meantime.
+            // We can ignore the error for this "ensure" function.
+             console.error(`Could not ensure generation role for ${generation} exists: ${e.message}`);
+        }
+    }
+}
+
+
 export async function createGenerationRole(generation: number): Promise<{ error: string | null, newRole: GenerationRole | null }> {
     try {
         await checkAdmin();
@@ -33,35 +86,8 @@ export async function createGenerationRole(generation: number): Promise<{ error:
             return { error: `期生 ${generation} は既に存在します。`, newRole: null };
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
-        const token = process.env.STEM_BOT_API_BEARER_TOKEN;
-
-        if (!apiUrl || !token) {
-            throw new Error('API URL or Bearer Token is not configured.');
-        }
-
-        const response = await fetch(`${apiUrl}/api/generation`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ generation }),
-            cache: 'no-store',
-        });
-
-        const result = await response.json();
+        const newRole = await callCreateGenerationApi(generation);
         
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Discordロールの作成に失敗しました。');
-        }
-
-        const newRole: GenerationRole = {
-            generation: result.generation,
-            discord_role_id: result.role_id,
-        };
-
-        // The API should have already saved it to the DB, but we revalidate to be sure.
         revalidatePath('/dashboard/admin/generations');
         return { error: null, newRole };
 
