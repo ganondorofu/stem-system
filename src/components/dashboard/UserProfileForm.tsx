@@ -63,7 +63,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name}/>
                             <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                         </Avatar>
-                        <h2 className="text-2xl font-bold font-headline">{user.name}</h2>
+                        <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
                         <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name}</p>
                         <p className="text-muted-foreground text-sm mt-2">{new Date(user.joined_at).toLocaleDateString()} に参加</p>
                     </CardContent>
@@ -79,7 +79,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                                 <FormItem>
                                     <FormLabel>期</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="例: 50" {...field} value={field.value ?? ''} />
+                                        <Input type="number" placeholder="例: 50" {...field} />
                                     </FormControl>
                                     <FormDescription>あなたの期を入力してください。</FormDescription>
                                     <FormMessage />
@@ -93,7 +93,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                                 <FormItem>
                                     <FormLabel>学籍番号</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="あなたの学籍番号" {...field} value={field.value ?? ''} />
+                                        <Input placeholder="あなたの学籍番号" {...field} />
                                     </FormControl>
                                     <FormDescription>任意入力です。</FormDescription>
                                     <FormMessage />

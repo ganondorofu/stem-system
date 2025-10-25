@@ -137,7 +137,6 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         discord_uid: user.user_metadata.provider_id,
         avatar_url: user.user_metadata.avatar_url,
         is_admin: false,
-        name: sanitizedName,
         status,
         student_number,
         generation: finalGeneration,
