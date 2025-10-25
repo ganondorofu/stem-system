@@ -18,13 +18,34 @@ async function getMembersData() {
         return { profiles: [], teams: [] };
     }
 
+    // Fetch user details from auth.users to get their names
+    const userIds = members.map(m => m.supabase_auth_user_id);
+    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: userIds.length,
+    });
+    
+    if (usersError) {
+        console.error('Error fetching user metadata:', usersError);
+        // Continue without names if this fails
+    }
+
+    const profilesWithNames = members.map(member => {
+        const user = usersData?.users.find(u => u.id === member.supabase_auth_user_id);
+        return {
+            ...member,
+            name: user?.user_metadata?.name || '不明なユーザー',
+        };
+    });
+
+
     const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
     if (teamsError) {
         console.error('Error fetching teams:', teamsError);
     }
     
     return {
-        profiles: (members as Member[]) || [],
+        profiles: profilesWithNames,
         teams: (teams as Team[]) || [],
     };
 }
@@ -44,5 +65,3 @@ export default async function MemberManagementPage() {
         </Card>
     );
 }
-
-    

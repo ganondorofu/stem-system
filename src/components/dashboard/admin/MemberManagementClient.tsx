@@ -47,12 +47,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: Member[], allTeams: Team[] }) {
+// This type is temporary until we fetch the full profiles
+type MemberWithName = Member & { name: string };
+
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithName[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [selectedMember, setSelectedMember] = React.useState<Member | null>(null)
+  const [selectedMember, setSelectedMember] = React.useState<MemberWithName | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
 
@@ -83,7 +86,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setSelectedMember(null)
   }
 
-  const columns: ColumnDef<Member>[] = [
+  const columns: ColumnDef<MemberWithName>[] = [
      {
       accessorKey: "name",
       header: "氏名",
@@ -262,5 +265,3 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
-
-    

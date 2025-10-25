@@ -63,11 +63,11 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
              {user && (
                 <div className="flex items-center gap-3 mb-4">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name} />
                     <AvatarFallback><User /></AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <p className="font-semibold text-sm leading-none">{user.name}</p>
+                    <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
                     <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
                 </div>
                 </div>
@@ -85,5 +85,3 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
     </header>
   );
 }
-
-    
