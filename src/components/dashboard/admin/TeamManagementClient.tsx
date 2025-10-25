@@ -24,6 +24,8 @@ const teamSchema = z.object({
 
 type TeamFormData = z.infer<typeof teamSchema>;
 
+type EnrichedMember = Member & { raw_user_meta_data: { name?: string } };
+
 export function TeamManagementClient({
   teams: initialTeams,
   members: allMembers,
@@ -31,7 +33,7 @@ export function TeamManagementClient({
   leaders: initialLeaders,
 }: {
   teams: Team[],
-  members: Member[],
+  members: EnrichedMember[],
   relations: MemberTeamRelation[],
   leaders: TeamLeader[],
 }) {
@@ -124,13 +126,13 @@ export function TeamManagementClient({
           return (
             <AccordionItem key={team.id} value={team.id}>
               <div className="flex items-center justify-between w-full border-b">
-                <AccordionTrigger className='hover:no-underline flex-1 py-4'>
+                 <AccordionTrigger className='hover:no-underline flex-1 py-4 data-[state=open]:border-b'>
                     <div className="flex flex-col text-left">
                         <span className="font-semibold text-lg">{team.name}</span>
                         <span className="text-xs text-muted-foreground font-mono mt-1">{team.discord_role_id}</span>
                     </div>
                 </AccordionTrigger>
-                <div className='flex items-center gap-2 pl-4 pr-4'>
+                <div className='flex items-center gap-2 pl-4 pr-4 border-b'>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenDialog(team); }}><Edit className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(team.id); }}><Trash2 className="h-4 w-4" /></Button>
                 </div>
@@ -150,7 +152,7 @@ export function TeamManagementClient({
                              <SelectItem value="none">なし</SelectItem>
                             {teamMembers.map(member => (
                                 <SelectItem key={member.supabase_auth_user_id} value={member.supabase_auth_user_id}>
-                                    {member.raw_user_meta_data.name}
+                                    {member.raw_user_meta_data.name || member.discord_uid}
                                 </SelectItem>
                             ))}
                         </SelectContent>
