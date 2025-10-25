@@ -6,7 +6,7 @@ async function getTeamsData() {
     const supabase = createClient();
     
     const teamsPromise = supabase.from('teams').select('*').order('name');
-    const membersPromise = supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null);
+    const membersPromise = supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid, raw_user_meta_data').is('deleted_at', null);
     const relationsPromise = supabase.from('member_team_relations').select('*');
     const leadersPromise = supabase.from('team_leaders').select('*');
 
