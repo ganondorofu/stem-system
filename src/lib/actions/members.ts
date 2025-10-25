@@ -113,12 +113,35 @@ async function syncDiscordNickname(discordUid: string, name: string) {
     }
 }
 
-async function getMemberName(supabase_auth_user_id: string) {
-    const supabase = await createClient();
-    const {data: member, error} = await supabase.from('members').select('raw_user_meta_data').eq('supabase_auth_user_id', supabase_auth_user_id).single();
-    if (error || !member) return null;
-    return member.raw_user_meta_data.name || null;
+export async function getMemberDisplayName(discordUid: string): Promise<string | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token || !discordUid) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to fetch nickname for ${discordUid}:`, response.status, await response.text());
+            return null;
+        }
+        
+        const data = await response.json();
+        return data.name_only || null;
+    } catch (error) {
+        console.error(`Error fetching nickname for ${discordUid}:`, error);
+        return null;
+    }
 }
+
 
 export async function registerNewMember(values: z.infer<typeof registerSchema>) {
     const supabase = await createClient();
