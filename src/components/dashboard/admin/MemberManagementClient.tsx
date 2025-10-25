@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { FullUserProfile, Team } from "@/lib/types"
+import type { Member, Team } from "@/lib/types"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,14 +47,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-type MemberData = Omit<FullUserProfile, "raw_user_meta_data">
-
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberData[], allTeams: Team[] }) {
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: Member[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [selectedMember, setSelectedMember] = React.useState<MemberData | null>(null)
+  const [selectedMember, setSelectedMember] = React.useState<Member | null>(null)
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
 
@@ -85,7 +83,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setSelectedMember(null)
   }
 
-  const columns: ColumnDef<MemberData>[] = [
+  const columns: ColumnDef<Member>[] = [
+     {
+      accessorKey: "name",
+      header: "氏名",
+    },
     {
       accessorKey: "generation",
       header: ({ column }) => (
@@ -168,10 +170,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="Discord UIDで絞り込み..."
-          value={(table.getColumn("discord_uid")?.getFilterValue() as string) ?? ""}
+          placeholder="氏名 or Discord UIDで絞り込み..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("discord_uid")?.setFilterValue(event.target.value)
+            table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -260,3 +262,5 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
+
+    

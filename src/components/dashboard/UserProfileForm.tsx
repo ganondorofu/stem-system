@@ -12,7 +12,7 @@ import { updateMyProfile } from '@/lib/actions/members';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { User } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 const profileSchema = z.object({
     generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。'),
@@ -63,7 +63,7 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
                             <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name}/>
                             <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                         </Avatar>
-                        <h2 className="text-2xl font-bold font-headline">{user.raw_user_meta_data.name}</h2>
+                        <h2 className="text-2xl font-bold font-headline">{user.name}</h2>
                         <p className="text-muted-foreground">@{user.raw_user_meta_data.user_name}</p>
                         <p className="text-muted-foreground text-sm mt-2">{new Date(user.joined_at).toLocaleDateString()} に参加</p>
                     </CardContent>
@@ -131,3 +131,5 @@ export function UserProfileForm({ user }: { user: FullUserProfile }) {
         </div>
     );
 }
+
+    

@@ -1,12 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { MemberManagementClient } from '@/components/dashboard/admin/MemberManagementClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { FullUserProfile, Team } from '@/lib/types';
+import type { Member, Team } from '@/lib/types';
 
 async function getMembersData() {
     const supabase = createClient();
     
-    // Fetch all non-deleted members
     const { data: members, error: membersError } = await supabase
         .from('members')
         .select('*')
@@ -19,19 +18,13 @@ async function getMembersData() {
         return { profiles: [], teams: [] };
     }
 
-    // Since we cannot join auth.users, we have to live without the full name for now
-    // in this server component. A more advanced setup might use database functions.
-    // We will pass the members data and let the client component enhance it if needed.
-    const profiles: Omit<FullUserProfile, 'raw_user_meta_data'>[] = members;
-
-    // Fetch all teams
     const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
     if (teamsError) {
         console.error('Error fetching teams:', teamsError);
     }
     
     return {
-        profiles: profiles || [],
+        profiles: (members as Member[]) || [],
         teams: (teams as Team[]) || [],
     };
 }
@@ -51,3 +44,5 @@ export default async function MemberManagementPage() {
         </Card>
     );
 }
+
+    

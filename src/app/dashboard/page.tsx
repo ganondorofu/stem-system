@@ -26,8 +26,6 @@ async function getDiscordMemberStatus(discordUid: string): Promise<DiscordMember
         });
 
         if (!response.ok) {
-            // If the member is not found on the server, the API might return a 404
-            // which is a valid check, so we can return a specific state.
             if(response.status === 404){
                  return {
                     discord_uid: discordUid,
@@ -67,7 +65,6 @@ export default async function DashboardGatePage() {
         );
     }
     
-    // 1. Check if user is in the Discord Server
     const discordStatus = await getDiscordMemberStatus(discordUid);
 
     if (!discordStatus) {
@@ -107,18 +104,14 @@ export default async function DashboardGatePage() {
                         <Info className="h-4 w-4" />
                         <AlertTitle>ステップ2: 参加確認</AlertTitle>
                         <AlertDescription>
-                            サーバーに参加したら、下のボタンをクリックして再度確認してください。
+                            サーバーに参加したら、このページを再読み込みしてください。
                         </AlertDescription>
                     </Alert>
-                    <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard">参加したか確認する</Link>
-                    </Button>
                 </CardContent>
             </Card>
         );
     }
 
-    // 2. User is in the server, check if they exist in our DB
     const { data: memberProfile } = await supabase
         .from('members')
         .select('*')
@@ -126,12 +119,10 @@ export default async function DashboardGatePage() {
         .is('deleted_at', null)
         .single();
     
-    // If user does not exist in DB, they are a new member. Redirect to registration.
     if (!memberProfile) {
         return redirect('/dashboard/register');
     }
 
-    // 3. User exists in DB. Show their profile.
     const fullProfile: FullUserProfile = {
       ...(memberProfile as Member),
       raw_user_meta_data: user.user_metadata,
@@ -151,3 +142,5 @@ export default async function DashboardGatePage() {
         </div>
     );
 }
+
+    

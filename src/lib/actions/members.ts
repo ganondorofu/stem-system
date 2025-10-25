@@ -3,19 +3,88 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { redirect } from 'next/navigation';
 
+// Schema for updating own profile (allows changing status to OB/OG)
 const profileSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
 });
 
+// Schema for initial registration
 const registerSchema = z.object({
-    generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。'),
+    name: z.string().min(1, '氏名は必須です。'),
+    status: z.coerce.number().int().min(0).max(2),
+    grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().optional().nullable(),
-    status: z.coerce.number().int().min(0).max(1),
+    generation: z.coerce.number().int().min(1, '期は正の整数である必要があります。').optional(),
+}).refine(data => {
+    if (data.status === 0 || data.status === 1) {
+        return !!data.grade;
+    }
+    return true;
+}, {
+    message: '学年は必須です。',
+    path: ['grade'],
+}).refine(data => {
+    if (data.status === 2) {
+        return !!data.generation;
+    }
+    return true;
+}, {
+    message: '期は必須です。',
+    path: ['generation'],
 });
+
+function getAcademicYear() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed (0 for January)
+    return month >= 3 ? year : year - 1; // Academic year starts in April (month 3)
+}
+
+function calculateGeneration(status: number, grade: number, academicYear: number) {
+    if (status === 1) { // High School
+        return 10 + (academicYear - 2025) - grade + 1;
+    }
+    if (status === 0) { // Junior High
+        return 10 + (academicYear - 2025) + 4 - grade;
+    }
+    return null;
+}
+
+async function syncDiscord(discordUid: string, name: string) {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token) {
+        console.error('API URL or Bearer Token is not configured for Discord sync.');
+        return; // Don't throw error, just log and skip sync
+    }
+    
+    // Sync roles first
+    try {
+        await fetch(`${apiUrl}/api/roles/sync`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ discord_uid: discordUid }),
+        });
+    } catch (e) {
+        console.error('Failed to sync roles:', e);
+    }
+    
+    // Then update nickname
+    try {
+        await fetch(`${apiUrl}/api/nickname/update`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ discord_uid: discordUid, name: name }),
+        });
+    } catch(e) {
+        console.error('Failed to update nickname:', e);
+    }
+}
+
 
 export async function registerNewMember(values: z.infer<typeof registerSchema>) {
     const supabase = createClient();
@@ -24,10 +93,12 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     if (!user) {
         return { error: '登録するにはログインする必要があります。' };
     }
-     const { data: existingMember } = await supabase
+    
+    const { data: existingMember } = await supabase
         .from('members')
         .select('supabase_auth_user_id')
         .eq('supabase_auth_user_id', user.id)
+        .is('deleted_at', null)
         .single();
 
     if (existingMember) {
@@ -36,21 +107,45 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
     const parsedData = registerSchema.safeParse(values);
     if (!parsedData.success) {
+        console.error("Invalid registration data:", parsedData.error.flatten());
         return { error: '無効なデータが提供されました。' };
     }
+    
+    const { status, name, grade, student_number, generation: directGeneration } = parsedData.data;
+
+    let finalGeneration: number | null = null;
+
+    if (status === 2) { // OB/OG
+        finalGeneration = directGeneration!;
+    } else { // Student
+        const academicYear = getAcademicYear();
+        finalGeneration = calculateGeneration(status, grade!, academicYear);
+    }
+    
+    if (finalGeneration === null) {
+        return { error: '期を計算できませんでした。入力内容を確認してください。' };
+    }
+
+    const sanitizedName = name.replace(/\s/g, '');
 
     const { error } = await supabase.from('members').insert({
         supabase_auth_user_id: user.id,
         discord_uid: user.user_metadata.provider_id,
         avatar_url: user.user_metadata.avatar_url,
-        is_admin: false, // New members are never admins
-        ...parsedData.data,
+        is_admin: false,
+        name: sanitizedName,
+        status,
+        student_number,
+        generation: finalGeneration,
     });
 
     if (error) {
         console.error('Error creating member profile:', error);
         return { error: '部員情報の作成に失敗しました。' };
     }
+
+    // Sync with Discord without waiting for it to finish
+    await syncDiscord(user.user_metadata.provider_id, sanitizedName);
 
     revalidatePath('/dashboard', 'layout');
     return { error: null };
@@ -174,3 +269,5 @@ export async function deleteMember(userId: string) {
     revalidatePath('/dashboard/admin/members');
     return { error: null };
 }
+
+    

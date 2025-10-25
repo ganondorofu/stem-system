@@ -1,5 +1,6 @@
 export type Member = {
   supabase_auth_user_id: string;
+  name: string;
   status: number;
   generation: number;
   student_number: string | null;
@@ -52,3 +53,5 @@ export type DiscordMemberStatus = {
   current_nickname: string | null;
   current_roles: string[];
 };
+
+    
