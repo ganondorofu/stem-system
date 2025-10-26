@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
@@ -65,23 +65,6 @@ const profileSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
 });
 
-
-function getAcademicYear() {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth(); // 0-indexed (0 for January)
-    return month >= 3 ? year : year - 1; // Academic year starts in April
-}
-
-function calculateGeneration(status: number, grade: number, academicYear: number) {
-    if (status === 1) { // High School
-        return 10 + (academicYear - 2025) - grade + 1;
-    }
-    if (status === 0) { // Junior High
-        return 10 + (academicYear - 2025) + 4 - grade;
-    }
-    return null;
-}
 
 function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTeamsAndRelations, isOpen: boolean, onOpenChange: (isOpen: boolean) => void }) {
   const [displayName, setDisplayName] = React.useState<string | null>(null);
@@ -117,12 +100,12 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
       <DialogHeader>
         <DialogTitle>メンバープロフィール</DialogTitle>
         <DialogDescription>
-          {displayName || member.raw_user_meta_data?.name || 'メンバー'}の詳細情報です。
+          {isLoading ? <Skeleton className="h-5 w-24 inline-block" /> : displayName}さんの詳細情報です。
         </DialogDescription>
       </DialogHeader>
         <div className="grid md:grid-cols-3 gap-6 py-4">
-            <div className="md:col-span-1 flex flex-col items-center text-center">
-                <Avatar className="w-32 h-32 mb-4 border-4 border-primary/20 shadow-lg">
+            <div className="md:col-span-1 flex flex-col items-center text-center space-y-2">
+                <Avatar className="w-32 h-32 mb-2 border-4 border-primary/20 shadow-lg">
                     <AvatarImage src={member.avatar_url ?? undefined} alt={displayName ?? ''}/>
                     <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                 </Avatar>
@@ -131,7 +114,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                 ) : (
                   <h2 className="text-2xl font-bold font-headline">{displayName}</h2>
                 )}
-                <p className="text-muted-foreground">@{discordUsername}</p>
+                <p className="text-muted-foreground text-sm">@{discordUsername}</p>
                 {member.is_admin && <Badge variant="destructive" className="mt-2"><Star className="w-3 h-3 mr-1"/>管理者</Badge>}
             </div>
             <div className="md:col-span-2 space-y-4">
@@ -141,7 +124,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center gap-4">
-                            <Building className="w-5 h-5 text-muted-foreground" />
+                            <Building className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">期</p>
                                 <p className="font-semibold">{member.generation}期生</p>
@@ -149,7 +132,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                         </div>
                         <Separator />
                         <div className="flex items-center gap-4">
-                            <StatusIcon className="w-5 h-5 text-muted-foreground" />
+                            <StatusIcon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">ステータス</p>
                                 <p className="font-semibold">{statusLabel}</p>
@@ -159,7 +142,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                             <>
                                 <Separator />
                                 <div className="flex items-center gap-4">
-                                    <School className="w-5 h-5 text-muted-foreground" />
+                                    <School className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                                     <div>
                                         <p className="text-sm text-muted-foreground">学籍番号</p>
                                         <p className="font-semibold">{member.student_number}</p>
@@ -168,8 +151,8 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                             </>
                         )}
                          <Separator />
-                         <div className="flex items-center gap-4">
-                            <Shield className="w-5 h-5 text-muted-foreground" />
+                         <div className="flex items-start gap-4">
+                            <Shield className="w-5 h-5 text-muted-foreground mt-1 flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">所属班</p>
                                 {member.teams && member.teams.length > 0 ? (
@@ -190,8 +173,8 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
                         <CardTitle className="text-xl">連絡先</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm font-medium">{member.email}</p>
-                        <p className="text-sm text-muted-foreground">Supabase登録メールアドレス</p>
+                        <p className="text-sm font-medium break-all">{member.email}</p>
+                        <p className="text-sm text-muted-foreground">登録メールアドレス</p>
                     </CardContent>
                 </Card>
             </div>
@@ -213,8 +196,6 @@ function EditProfileDialog({
   onProfileUpdate: (updatedMember: Partial<MemberWithTeamsAndRelations>) => void;
 }) {
     const { toast } = useToast();
-    const academicYear = getAcademicYear();
-
     const form = useForm<z.infer<typeof profileSchema>>({
         resolver: zodResolver(profileSchema),
         defaultValues: {
@@ -330,7 +311,7 @@ function EditProfileDialog({
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={form.formState.isSubmitting}>キャンセル</Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? '保存中...' : '保存'}
+                                {form.formState.isSubmitting ? <><Loader2 className="animate-spin" /> 保存中...</> : '保存'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -495,7 +476,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <span>{row.original.generation}期</span>
+      cell: ({ row }) => <div className="text-center">{row.original.generation}期</div>,
     },
     {
         accessorKey: "student_number",
@@ -576,22 +557,29 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const filterValue = (table.getColumn("displayName")?.getFilterValue() as string) ?? "";
   React.useEffect(() => {
+    const search = filterValue.toLowerCase();
+    if (!search) {
+        setMembers(initialMembers);
+        return;
+    }
+    
     setMembers(initialMembers.filter(member => {
         const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase();
         const email = (member.email || '').toLowerCase();
+        const studentNumber = (member.student_number || '').toLowerCase();
+        const generation = String(member.generation).toLowerCase();
         const cachedName = (displayNameCache[member.discord_uid] || '').toLowerCase();
-        const search = filterValue.toLowerCase();
         
-        return discordUsername.includes(search) || email.includes(search) || cachedName.includes(search);
+        return discordUsername.includes(search) || email.includes(search) || cachedName.includes(search) || studentNumber.includes(search) || generation.includes(search);
     }));
 }, [filterValue, initialMembers, displayNameCache]);
 
 
   return (
-    <div>
+    <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="名前, Email, Discordユーザー名で絞り込み..."
+          placeholder="名前, Email, 学籍番号などで絞り込み..."
           value={filterValue}
           onChange={(event) =>
             table.getColumn("displayName")?.setFilterValue(event.target.value)
@@ -636,7 +624,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  結果がありません。
+                  一致するメンバーが見つかりません。
                 </TableCell>
               </TableRow>
             )}
@@ -667,13 +655,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             <AlertDialogTitle>本当によろしいですか？</AlertDialogTitle>
             <AlertDialogDescription>
               {alertAction === 'delete'
-                ? `これによりメンバーがソフトデリートされます。メンバーは「削除済み」としてマークされ、アクセスできなくなります。この操作はデータベース内で元に戻すことができます。`
-                : `これにより、このユーザーの管理者権限が${selectedMember?.is_admin ? '取り消され' : '付与され'}ます。`
+                ? `このメンバーを削除します。この操作はデータベース上で元に戻すことができますが、関連するDiscordロールなどは手動での対応が必要になる場合があります。`
+                : `このユーザーの管理者権限を${selectedMember?.is_admin ? '取り消し' : '付与し'}ます。`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsAlertOpen(false)}>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isActionSubmitting}>キャンセル</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleAlertAction} 
               disabled={isActionSubmitting}
@@ -697,7 +685,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 name="team_ids"
                 render={() => (
                   <FormItem className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto p-1">
                       {allTeams.map(team => (
                         <FormField
                           key={team.id}
@@ -730,7 +718,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)} disabled={isTeamSubmitting}>キャンセル</Button>
                 <Button type="submit" disabled={isTeamSubmitting}>
-                  {isTeamSubmitting ? '保存中...' : '保存'}
+                  {isTeamSubmitting ? <><Loader2 className="animate-spin" /> 保存中...</> : '保存'}
                 </Button>
               </DialogFooter>
             </form>
@@ -755,5 +743,3 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
-
-    

@@ -4,7 +4,6 @@ export type Member = {
   generation: number;
   student_number: string | null;
   discord_uid: string;
-  avatar_url: string | null;
   is_admin: boolean;
   joined_at: string;
   deleted_at: string | null;
@@ -41,10 +40,12 @@ export type MemberWithTeams = Member & {
    raw_user_meta_data: {
     [key: string]: any;
   };
+  avatar_url: string | null;
 };
 
 export type FullUserProfile = Member & {
     raw_user_meta_data: any;
+    avatar_url: string | null;
 };
 
 export type MemberWithTeamsAndRelations = Member & {
@@ -52,6 +53,7 @@ export type MemberWithTeamsAndRelations = Member & {
   teams: Team[];
   raw_user_meta_data: { [key: string]: any };
   email: string | null;
+  avatar_url: string | null;
 }
 
 export type DiscordMemberStatus = {

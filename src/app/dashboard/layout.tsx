@@ -23,11 +23,10 @@ export default async function DashboardLayout({
     .is('deleted_at', null)
     .single();
 
-  // New user registration is now handled on the dashboard page
-  // We only build a partial profile here if the user exists
-  const fullProfile: (Member & { raw_user_meta_data: any }) | null = memberProfile ? {
+  const fullProfile: (Member & { raw_user_meta_data: any; avatar_url: string | null; }) | null = memberProfile ? {
     ...(memberProfile as Member),
     raw_user_meta_data: user.user_metadata,
+    avatar_url: user.user_metadata.avatar_url,
   } : null;
 
   return (
