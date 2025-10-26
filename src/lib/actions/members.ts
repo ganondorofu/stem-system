@@ -8,6 +8,12 @@ import { ensureGenerationRoleExists } from './generations';
 
 const studentNumberRegex = /^[0-9]+$/;
 
+// Schema for re-syncing Discord member (for users who left and rejoined)
+const reSyncSchema = z.object({
+    last_name: z.string().min(1, '姓は必須です。'),
+    first_name: z.string().min(1, '名は必須です。'),
+});
+
 // Schema for updating own profile (allows changing status to OB/OG)
 const profileSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
@@ -17,7 +23,8 @@ const profileSchema = z.object({
 
 // Schema for initial registration
 const registerSchema = z.object({
-    name: z.string().min(1, '氏名は必須です。'),
+    last_name: z.string().min(1, '姓は必須です。'),
+    first_name: z.string().min(1, '名は必須です。'),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
@@ -170,7 +177,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: errorMessage };
     }
     
-    const { status, name, grade, student_number, generation: directGeneration, team_ids } = parsedData.data;
+    const { status, last_name, first_name, grade, student_number, generation: directGeneration, team_ids } = parsedData.data;
 
     let finalGeneration: number | null = null;
 
@@ -185,7 +192,8 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: '期を計算できませんでした。入力内容を確認してください。' };
     }
 
-    const sanitizedName = name.replace(/\s/g, '');
+    // Concatenate last_name and first_name, removing any spaces
+    const fullName = (last_name + first_name).replace(/\s/g, '');
     
     await ensureGenerationRoleExists(finalGeneration);
 
@@ -215,11 +223,55 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    await syncDiscordNickname(user.user_metadata.provider_id, sanitizedName);
+    await syncDiscordNickname(user.user_metadata.provider_id, fullName);
     await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard/admin/members');
+    return { error: null };
+}
+
+
+export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: '再連携するにはログインする必要があります。' };
+    }
+
+    const parsedData = reSyncSchema.safeParse(values);
+    if (!parsedData.success) {
+        const firstError = parsedData.error.flatten().fieldErrors;
+        const errorMessage = Object.values(firstError)[0]?.[0] || '無効なデータが提供されました。';
+        return { error: errorMessage };
+    }
+
+    const { last_name, first_name } = parsedData.data;
+    const fullName = (last_name + first_name).replace(/\s/g, '');
+    const discordUid = user.user_metadata.provider_id;
+
+    if (!discordUid) {
+        return { error: 'Discord UIDが取得できませんでした。' };
+    }
+
+    // Check if member profile exists
+    const { data: memberProfile } = await supabase
+        .from('members')
+        .select('*')
+        .eq('supabase_auth_user_id', user.id)
+        .is('deleted_at', null)
+        .single();
+
+    if (!memberProfile) {
+        return { error: 'メンバー情報が見つかりません。新規登録が必要です。' };
+    }
+
+    // Re-sync Discord nickname and roles
+    await syncDiscordNickname(discordUid, fullName);
+    await syncDiscordRoles(discordUid);
+
+    revalidatePath('/dashboard', 'layout');
     return { error: null };
 }
 

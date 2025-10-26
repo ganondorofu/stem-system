@@ -20,7 +20,8 @@ import { Checkbox } from '../ui/checkbox';
 const studentNumberRegex = /^[0-9]+$/;
 
 const registerSchema = z.object({
-    name: z.string().min(1, '氏名は必須です。'),
+    last_name: z.string().min(1, '姓は必須です。'),
+    first_name: z.string().min(1, '名は必須です。'),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
@@ -118,20 +119,35 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>氏名</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="例: 山田太郎 (全角)" {...field} />
-                                        </FormControl>
-                                        <FormDescription>Discordのニックネームにも使用されます。スペースは含めないでください。</FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="last_name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>姓</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="例: 山田" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="first_name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>名</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="例: 太郎" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <FormDescription>Discordのニックネームにも使用されます。全角で入力してください。</FormDescription>
 
                              <FormField
                                 control={form.control}
