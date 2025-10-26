@@ -12,11 +12,15 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // The middleware client needs to be able to read and write cookies
+      // to manage the user's session.
+      // It does not need to specify a database schema as its primary purpose is auth.
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
+        set(name:string, value: string, options: CookieOptions) {
+          // If the cookie is set, update the request and response cookies.
           request.cookies.set({
             name,
             value,
@@ -34,6 +38,7 @@ export async function updateSession(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
+          // If the cookie is removed, update the request and response cookies.
           request.cookies.set({
             name,
             value: '',
@@ -54,20 +59,8 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Refreshing the session will update the cookie.
+  await supabase.auth.getUser();
 
-  const protectedPaths = ['/dashboard'];
-  const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
-
-  if (!user && isProtectedPath) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-  
-  if (user && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  return response
+  return { response, supabase };
 }
