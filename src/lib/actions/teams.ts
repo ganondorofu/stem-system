@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
@@ -24,8 +25,10 @@ async function syncDiscordRoles(discordUid: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
+    console.log(`[Discord Bot] Attempting to sync roles for discord_uid: ${discordUid}`);
+
     if (!apiUrl || !token) {
-        console.error('API URL or Bearer Token is not configured for Discord role sync.');
+        console.error('[Discord Bot] API URL or Bearer Token is not configured for Discord role sync.');
         return;
     }
     
@@ -37,10 +40,13 @@ async function syncDiscordRoles(discordUid: string) {
             cache: 'no-store',
         });
          if (!res.ok) {
-            console.error('Failed to sync roles:', res.status, await res.text());
+            const errorText = await res.text();
+            console.error(`[Discord Bot] Failed to sync roles for ${discordUid}. Status: ${res.status}, Body: ${errorText}`);
+        } else {
+            console.log(`[Discord Bot] Successfully initiated role sync for discord_uid: ${discordUid}`);
         }
     } catch (e) {
-        console.error('Error during role sync:', e);
+        console.error(`[Discord Bot] Error during role sync for ${discordUid}:`, e);
     }
 }
 
@@ -142,6 +148,7 @@ export async function updateTeamLeaders(teamId: string, memberIds: string[]): Pr
             if (membersError) throw membersError;
 
             if (membersToSync) {
+                 console.log(`[Discord Bot] Syncing roles for ${membersToSync.length} members affected by leader change in team ${teamId}`);
                 for (const member of membersToSync) {
                     await syncDiscordRoles(member.discord_uid);
                 }
@@ -155,3 +162,5 @@ export async function updateTeamLeaders(teamId: string, memberIds: string[]): Pr
         return { error: e.message };
     }
 }
+
+    
