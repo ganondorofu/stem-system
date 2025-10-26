@@ -325,7 +325,7 @@ function EditProfileDialog({
     );
 }
 
-export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
+export function MemberManagementClient({ initialMembers, allTeams, initialMemberNames }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[], initialMemberNames: { [key: string]: string } }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -419,46 +419,25 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setIsTeamSubmitting(false);
   }
 
-  const [displayNameCache, setDisplayNameCache] = React.useState<Record<string, string>>({});
-  const [loadingDisplayNames, setLoadingDisplayNames] = React.useState<Record<string, boolean>>({});
-
   const DisplayNameCell = ({ row }: { row: any }) => {
     const member = row.original as MemberWithTeamsAndRelations;
     const discordUid = member.discord_uid;
-    const cachedName = displayNameCache[discordUid];
-    const isLoading = loadingDisplayNames[discordUid];
+    const realName = initialMemberNames[discordUid];
+    
     const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
     const discordUsername = rawUsername.split('#')[0];
 
 
-    React.useEffect(() => {
-      if (discordUid && !cachedName && !isLoading && showRealName) {
-        setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: true }));
-        getMemberDisplayName(discordUid)
-          .then(name => {
-            const finalName = name || member.raw_user_meta_data?.name || '名前不明';
-            setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
-          })
-          .catch(() => {
-            const finalName = member.raw_user_meta_data?.name || '名前不明';
-            setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
-          })
-          .finally(() => {
-            setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: false }));
-          });
-      }
-    }, [discordUid, cachedName, isLoading, member, showRealName]);
-
-    let displayName = discordUsername;
+    let displayName = `@${discordUsername}`;
     let subText = member.discord_uid;
 
-    if (showRealName) {
-      displayName = discordUid ? (cachedName || '読み込み中...') : (member.raw_user_meta_data?.name || '名前不明');
+    if (showRealName && realName) {
+      displayName = realName;
+      subText = `@${discordUsername}`;
+    } else if(showRealName) {
+      displayName = '名前不明';
       subText = `@${discordUsername}`;
     }
-
-    const showSkeleton = showRealName && (isLoading || (!cachedName && discordUid));
-
 
     return (
       <div className="flex items-center gap-3">
@@ -466,17 +445,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <AvatarImage src={member.avatar_url || ''} />
           <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
         </Avatar>
-        {showSkeleton ? (
-           <div className="flex flex-col gap-1">
-             <Skeleton className="h-5 w-24" />
-             <Skeleton className="h-3 w-16" />
-           </div>
-        ) : (
-          <div className="flex flex-col">
+        <div className="flex flex-col">
             <span className="font-medium">{displayName}</span>
             <span className="text-xs text-muted-foreground font-mono">{subText}</span>
-          </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -588,11 +560,11 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         const email = (member.email || '').toLowerCase();
         const studentNumber = (member.student_number || '').toLowerCase();
         const generation = String(member.generation).toLowerCase();
-        const cachedName = (displayNameCache[member.discord_uid] || '').toLowerCase();
+        const realName = (initialMemberNames[member.discord_uid] || '').toLowerCase();
         
-        return discordUsername.includes(search) || email.includes(search) || cachedName.includes(search) || studentNumber.includes(search) || generation.includes(search);
+        return discordUsername.includes(search) || email.includes(search) || realName.includes(search) || studentNumber.includes(search) || generation.includes(search);
     }));
-}, [filterValue, initialMembers, displayNameCache]);
+}, [filterValue, initialMembers, initialMemberNames]);
 
 
   return (
