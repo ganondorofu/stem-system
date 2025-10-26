@@ -26,7 +26,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
             .finally(() => {
                 setIsLoading(false);
             });
-    }, [user]);
+    }, [user.discord_uid, user.raw_user_meta_data?.name]);
     
     const statusMap: { [key: number]: { label: string, icon: React.ElementType } } = {
       0: { label: "中学生", icon: School },
@@ -34,18 +34,18 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const discordUsername = user.raw_user_meta_data?.user_name?.split('#')[0] || user.raw_user_meta_data?.name || '不明';
+    const discordUsername = user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
 
     return (
         <div className="grid md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 flex flex-col items-center text-center">
-                <Avatar className="w-32 h-32 mb-4 border-4 border-primary/20 shadow-lg">
+            <div className="md:col-span-1 flex flex-col items-center text-center space-y-2">
+                <Avatar className="w-32 h-32 mb-2 border-4 border-primary/20 shadow-lg">
                     <AvatarImage src={user.avatar_url ?? undefined} alt={displayName ?? ''}/>
                     <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                 </Avatar>
                 {isLoading ? <Skeleton className="h-8 w-40" /> : <h2 className="text-2xl font-bold font-headline">{displayName}</h2>}
-                <p className="text-muted-foreground">@{discordUsername}</p>
+                <p className="text-muted-foreground text-sm">@{discordUsername}</p>
                 {user.is_admin && <Badge variant="destructive" className="mt-2"><Star className="w-3 h-3 mr-1"/>管理者</Badge>}
             </div>
             <div className="md:col-span-2 space-y-6">
@@ -55,7 +55,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center gap-4">
-                            <Building className="w-5 h-5 text-muted-foreground" />
+                            <Building className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">期</p>
                                 <p className="font-semibold">{user.generation}期生</p>
@@ -63,7 +63,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                         </div>
                         <Separator />
                         <div className="flex items-center gap-4">
-                            <StatusIcon className="w-5 h-5 text-muted-foreground" />
+                            <StatusIcon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">ステータス</p>
                                 <p className="font-semibold">{statusLabel}</p>
@@ -73,7 +73,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                             <>
                                 <Separator />
                                 <div className="flex items-center gap-4">
-                                    <School className="w-5 h-5 text-muted-foreground" />
+                                    <School className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                                     <div>
                                         <p className="text-sm text-muted-foreground">学籍番号</p>
                                         <p className="font-semibold">{user.student_number}</p>
@@ -89,7 +89,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                     </CardHeader>
                     <CardContent>
                          <div className="flex items-start gap-4">
-                            <Shield className="w-5 h-5 text-muted-foreground mt-1" />
+                            <Shield className="w-5 h-5 text-muted-foreground mt-1 flex-shrink-0" />
                             <div>
                                 <p className="text-sm text-muted-foreground">所属班</p>
                                 {user.teams && user.teams.length > 0 ? (

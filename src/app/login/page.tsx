@@ -18,8 +18,7 @@ export default function LoginPage() {
   const error = searchParams.get('error');
 
   const handleLogin = async () => {
-    const redirectUrl = 'https://test-app.yn3143.xyz/auth/callback';
-    console.log('[Login] Starting OAuth flow with redirect:', redirectUrl);
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
@@ -36,13 +35,13 @@ export default function LoginPage() {
             <Club className="h-8 w-8" />
           </div>
           <CardTitle className="text-3xl font-bold font-headline">STEM研究部</CardTitle>
-          <CardDescription>部活動の管理システムにサインインします</CardDescription>
+          <CardDescription>部活動管理システム</CardDescription>
         </CardHeader>
         <CardContent>
           {error && <p className="text-destructive text-center text-sm mb-4">{error === 'Could not authenticate user' ? 'ユーザー認証に失敗しました。' : error}</p>}
           <Button onClick={handleLogin} className="w-full text-lg py-6" size="lg">
             <DiscordIcon />
-            Discordでサインイン
+            Discordでログイン
           </Button>
         </CardContent>
       </Card>

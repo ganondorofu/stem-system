@@ -8,6 +8,8 @@ import { Menu, Club, Home, Users, Shield, LogOut, User } from 'lucide-react';
 import type { FullUserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Skeleton } from '../ui/skeleton';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
@@ -18,6 +20,14 @@ const navItems = [
 export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
+  const [displayName, setDisplayName] = useState(user?.raw_user_meta_data?.name);
+
+  useEffect(() => {
+    // Client-side fetch might be needed if name isn't immediately available
+    if (user && !displayName) {
+        // Potentially fetch display name from a client-side action if needed
+    }
+  }, [user, displayName]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -27,7 +37,7 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
   const isAdmin = user?.is_admin ?? false;
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 md:hidden">
+    <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-30 md:hidden">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0">
@@ -37,9 +47,9 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
         </SheetTrigger>
         <SheetContent side="left" className="flex flex-col">
           <nav className="grid gap-2 text-lg font-medium">
-            <Link href="#" className="flex items-center gap-2 text-lg font-semibold mb-4">
+            <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold mb-4">
               <Club className="h-6 w-6 text-primary" />
-              <span className="sr-only">STEM研究部</span>
+              <span className="font-headline">STEM研究部</span>
             </Link>
             {user && navItems.map((item) => {
               if (item.admin && !isAdmin) return null;
@@ -59,16 +69,24 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
             })}
           </nav>
           <div className="mt-auto">
-             {user && (
+             {user ? (
                 <div className="flex items-center gap-3 mb-4">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.raw_user_meta_data.name} />
-                    <AvatarFallback><User /></AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                    <p className="font-semibold text-sm leading-none">{user.raw_user_meta_data.name}</p>
-                    <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
+                  <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatar_url ?? undefined} alt={displayName} />
+                      <AvatarFallback><User /></AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col overflow-hidden">
+                      <p className="font-semibold text-sm leading-none truncate">{displayName}</p>
+                      <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
+                  </div>
                 </div>
+             ) : (
+                <div className="flex items-center gap-3 mb-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                    </div>
                 </div>
              )}
             <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
@@ -79,7 +97,9 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
         </SheetContent>
       </Sheet>
       <div className="w-full flex-1">
-        {/* Can add breadcrumbs here if needed */}
+        <h1 className="font-semibold text-lg">
+          {navItems.find(item => pathname.startsWith(item.href))?.label || 'ダッシュボード'}
+        </h1>
       </div>
     </header>
   );

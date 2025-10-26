@@ -21,14 +21,18 @@ async function getMembersData() {
     }
 
     const userIds = members.map(m => m.supabase_auth_user_id);
-    const { data: { users: usersData }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: userIds.length,
-    });
-    
-    if (usersError) {
-        console.error('Error fetching user metadata:', usersError);
-        throw usersError;
+    let usersData: any[] = [];
+    if (userIds.length > 0) {
+        const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        
+        if (usersError) {
+            console.error('Error fetching user metadata:', usersError);
+            throw usersError;
+        }
+        usersData = users.filter(u => userIds.includes(u.id));
     }
     
     const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
@@ -44,7 +48,6 @@ async function getMembersData() {
         
         return {
             ...member,
-            // displayName is now fetched on client
             relations: memberRelations,
             teams: memberTeams,
             raw_user_meta_data: user?.user_metadata || {},
@@ -65,7 +68,7 @@ export default async function MemberManagementPage() {
         <Card>
             <CardHeader>
                 <CardTitle>メンバー管理</CardTitle>
-                <CardDescription>すべての部員のロールとステータス、所属班を管理します。</CardDescription>
+                <CardDescription>部員全体のロール、ステータス、所属班を管理します。</CardDescription>
             </CardHeader>
             <CardContent>
                 <MemberManagementClient initialMembers={profiles} allTeams={allTeams} />

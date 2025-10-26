@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { registerNewMember } from '@/lib/actions/members';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import type { Team } from '@/lib/types';
 import { Checkbox } from '../ui/checkbox';
 
@@ -66,6 +66,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
     const { toast } = useToast();
     const router = useRouter();
     const academicYear = getAcademicYear();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<z.infer<typeof registerSchema>>({
         resolver: zodResolver(registerSchema),
@@ -86,6 +87,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
     }, [watchedStatus, watchedGrade, academicYear]);
 
     async function onSubmit(values: z.infer<typeof registerSchema>) {
+        setIsSubmitting(true);
         const result = await registerNewMember(values);
         if (result.error) {
             toast({
@@ -93,6 +95,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                 description: result.error,
                 variant: 'destructive',
             });
+            setIsSubmitting(false);
         } else {
             toast({
                 title: 'ようこそ！',
@@ -110,7 +113,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
     };
 
     return (
-        <div className="flex items-center justify-center h-full p-4">
+        <div className="flex items-center justify-center min-h-screen p-4 bg-muted/20">
             <Card className="w-full max-w-2xl">
                  <CardHeader>
                     <CardTitle>STEM研究部へようこそ！</CardTitle>
@@ -119,7 +122,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid sm:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="last_name"
@@ -147,7 +150,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                     )}
                                 />
                             </div>
-                            <FormDescription>Discordのニックネームにも使用されます。全角で入力してください。</FormDescription>
+                            <FormDescription>Discordのニックネームにも使用されます。姓名は全角で入力してください。</FormDescription>
 
                              <FormField
                                 control={form.control}
@@ -253,7 +256,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                             参加したい班をすべて選択してください。（任意）
                                         </FormDescription>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {teams.map((team) => (
                                     <FormField
                                         key={team.id}
@@ -294,8 +297,13 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                             />
 
 
-                            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
-                                {form.formState.isSubmitting ? '登録中...' : '登録して始める'}
+                            <Button type="submit" disabled={isSubmitting} className="w-full">
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        登録中...
+                                    </>
+                                ) : '登録して始める'}
                             </Button>
                         </form>
                     </Form>

@@ -58,11 +58,13 @@ export default async function DashboardGatePage() {
     const discordUid = user.user_metadata.provider_id;
     if (!discordUid) {
         return (
-            <Alert variant="destructive">
-                <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>エラー</AlertTitle>
-                <AlertDescription>DiscordのユーザーIDが取得できませんでした。再ログインしてください。</AlertDescription>
-            </Alert>
+            <div className="flex items-center justify-center h-full p-4">
+                <Alert variant="destructive" className="max-w-lg">
+                    <TriangleAlert className="h-4 w-4" />
+                    <AlertTitle>エラー</AlertTitle>
+                    <AlertDescription>DiscordのユーザーIDが取得できませんでした。再ログインしてください。</AlertDescription>
+                </Alert>
+            </div>
         );
     }
     
@@ -70,46 +72,50 @@ export default async function DashboardGatePage() {
 
     if (!discordStatus) {
          return (
-            <Alert variant="destructive">
-                <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>APIエラー</AlertTitle>
-                <AlertDescription>Discordサーバーとの連携状態を確認できませんでした。管理者にお問い合わせください。</AlertDescription>
-            </Alert>
+            <div className="flex items-center justify-center h-full p-4">
+                <Alert variant="destructive" className="max-w-lg">
+                    <TriangleAlert className="h-4 w-4" />
+                    <AlertTitle>APIエラー</AlertTitle>
+                    <AlertDescription>Discordサーバーとの連携状態を確認できませんでした。管理者にお問い合わせください。</AlertDescription>
+                </Alert>
+            </div>
         );
     }
 
     if (!discordStatus.is_in_server) {
         return (
-            <Card className="w-full max-w-lg mx-auto">
-                <CardHeader>
-                    <CardTitle>Discordサーバーに参加してください</CardTitle>
-                    <CardDescription>
-                        このシステムを利用するには、まずSTEM研究部のDiscordサーバーに参加する必要があります。
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                     <Alert>
-                        <LogIn className="h-4 w-4" />
-                        <AlertTitle>ステップ1: サーバーに参加</AlertTitle>
-                        <AlertDescription>
-                            下のボタンからDiscordサーバーに参加してください。
-                        </AlertDescription>
-                    </Alert>
-                     <Button asChild className="w-full">
-                        <a href={process.env.NEXT_PUBLIC_DISCORD_INVITE_URL || 'https://discord.gg/your-invite-link'} target="_blank" rel="noopener noreferrer">
-                            <Server className="mr-2 h-4 w-4" />
-                            Discordサーバーに参加する
-                        </a>
-                    </Button>
-                    <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>ステップ2: 参加確認</AlertTitle>
-                        <AlertDescription>
-                            サーバーに参加したら、このページを再読み込みしてください。
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
+            <div className="flex items-center justify-center h-full p-4">
+                <Card className="w-full max-w-lg mx-auto">
+                    <CardHeader>
+                        <CardTitle>Discordサーバーに参加してください</CardTitle>
+                        <CardDescription>
+                            このシステムを利用するには、まずSTEM研究部のDiscordサーバーに参加する必要があります。
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                        <Alert>
+                            <LogIn className="h-4 w-4" />
+                            <AlertTitle>ステップ1: サーバーに参加</AlertTitle>
+                            <AlertDescription>
+                                下のボタンからDiscordサーバーに参加してください。
+                            </AlertDescription>
+                        </Alert>
+                        <Button asChild className="w-full">
+                            <a href={process.env.NEXT_PUBLIC_DISCORD_INVITE_URL || 'https://discord.gg/your-invite-link'} target="_blank" rel="noopener noreferrer">
+                                <Server className="mr-2 h-4 w-4" />
+                                Discordサーバーに参加する
+                            </a>
+                        </Button>
+                        <Alert>
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>ステップ2: 参加確認</AlertTitle>
+                            <AlertDescription>
+                                サーバーに参加したら、このページを再読み込みしてください。
+                            </AlertDescription>
+                        </Alert>
+                    </CardContent>
+                </Card>
+            </div>
         );
     }
 
@@ -124,29 +130,29 @@ export default async function DashboardGatePage() {
         .is('deleted_at', null)
         .single();
     
-    // If user is in server but doesn't have linked role and has a profile, show re-sync form
     if (!hasLinkedRole && memberProfile) {
         return (
-            <Card className="w-full max-w-lg mx-auto">
-                <CardHeader>
-                    <CardTitle>Discord連携が必要です</CardTitle>
-                    <CardDescription>
-                        Discordサーバーには参加していますが、連携が完了していません。
-                        姓名を入力してDiscord連携を再設定してください。
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <Alert>
-                        <Link2 className="h-4 w-4" />
-                        <AlertTitle>Discord連携が未完了</AlertTitle>
-                        <AlertDescription>
-                            以前サーバーを脱退した、またはロールが削除された可能性があります。
-                            下記のフォームから再連携してください。
-                        </AlertDescription>
-                    </Alert>
-                    <ReSyncForm />
-                </CardContent>
-            </Card>
+            <div className="flex items-center justify-center h-full p-4">
+                <Card className="w-full max-w-lg mx-auto">
+                    <CardHeader>
+                        <CardTitle>Discord連携の再設定</CardTitle>
+                        <CardDescription>
+                            Discord連携が未完了、または情報が古い可能性があります。
+                            姓名を再入力して、Discord連携を再設定してください。
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                        <Alert>
+                            <Link2 className="h-4 w-4" />
+                            <AlertTitle>連携情報の更新が必要です</AlertTitle>
+                            <AlertDescription>
+                                以前サーバーから退出した場合や、ロールが正しく付与されていない場合にこの画面が表示されます。
+                            </AlertDescription>
+                        </Alert>
+                        <ReSyncForm />
+                    </CardContent>
+                </Card>
+            </div>
         );
     }
     
@@ -173,11 +179,11 @@ export default async function DashboardGatePage() {
         ...memberProfile,
         teams: teams,
         raw_user_meta_data: user.user_metadata,
+        avatar_url: user.user_metadata.avatar_url,
     };
 
-
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>マイプロフィール</CardTitle>

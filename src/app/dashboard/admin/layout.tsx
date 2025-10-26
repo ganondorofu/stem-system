@@ -23,12 +23,12 @@ export default async function AdminLayout({
 
   if (!member || !member.is_admin) {
     return (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center h-full p-4">
             <Alert variant="destructive" className="max-w-md">
                 <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>アクセスが拒否されました</AlertTitle>
+                <AlertTitle>アクセス権限がありません</AlertTitle>
                 <AlertDescription>
-                このページにアクセスする権限がありません。このセクションは管理者専用です。
+                このページを閲覧する権限がありません。このセクションは管理者専用です。
                 </AlertDescription>
             </Alert>
         </div>
