@@ -39,7 +39,8 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const discordUsername = user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
+    const rawDiscordUsername = user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
+    const discordUsername = rawDiscordUsername.split('#')[0];
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
 
     return (
