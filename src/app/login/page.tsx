@@ -51,7 +51,7 @@ function LoginPage() {
 
 export default function LoginPageWrapper() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense>
       <LoginPage />
     </Suspense>
   )
