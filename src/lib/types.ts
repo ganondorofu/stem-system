@@ -43,6 +43,10 @@ export type MemberWithTeams = Member & {
   };
 };
 
+export type FullUserProfile = Member & {
+    raw_user_meta_data: any;
+};
+
 export type MemberWithTeamsAndRelations = Member & {
   relations: MemberTeamRelation[];
   teams: Team[];

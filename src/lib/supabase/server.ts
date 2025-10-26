@@ -15,7 +15,7 @@ async function createSupabaseClient(isAdmin: boolean = false) {
 
   return createServerClient(supabaseUrl, supabaseKey, {
     db: {
-      schema: 'member',
+        schema: 'member',
     },
     auth: {
       autoRefreshToken: !isAdmin,
