@@ -162,6 +162,53 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
     }
 }
 
+type MemberNameMap = { [key: string]: string };
+
+export async function getAllMemberNames(): Promise<MemberNameMap | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    console.log(`[getAllMemberNames] Attempting to fetch all member names.`);
+
+    if (!apiUrl || !token) {
+        console.error(`[getAllMemberNames] Aborting: API URL or Token is missing.`);
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${apiUrl}/api/members`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+            const responseText = await response.text();
+            console.error(`[getAllMemberNames] Failed to fetch - Status: ${response.status}, Body: ${responseText}`);
+            return null;
+        }
+        
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.data)) {
+            console.error(`[getAllMemberNames] API response was not successful or data is not an array.`);
+            return null;
+        }
+
+        const nameMap: MemberNameMap = data.data.reduce((acc: MemberNameMap, member: { uid: string, name: string }) => {
+            acc[member.uid] = member.name;
+            return acc;
+        }, {});
+        
+        console.log(`[getAllMemberNames] Successfully fetched and mapped ${Object.keys(nameMap).length} members.`);
+        return nameMap;
+    } catch (error) {
+        console.error(`[getAllMemberNames] Error fetching member names:`, error);
+        return null;
+    }
+}
+
+
 
 export async function registerNewMember(values: z.infer<typeof registerSchema>) {
     const supabase = await createClient();

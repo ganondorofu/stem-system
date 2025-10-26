@@ -35,7 +35,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin, getAllMemberNames } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -58,6 +58,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+type MemberNameMap = { [key: string]: string };
 
 const profileSchema = z.object({
     status: z.coerce.number().int().min(0).max(2),
@@ -325,8 +327,10 @@ function EditProfileDialog({
     );
 }
 
-export function MemberManagementClient({ initialMembers, allTeams, initialMemberNames }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[], initialMemberNames: { [key: string]: string } }) {
+export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
+  const [memberNames, setMemberNames] = React.useState<MemberNameMap>({});
+  const [namesLoaded, setNamesLoaded] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
@@ -341,10 +345,28 @@ export function MemberManagementClient({ initialMembers, allTeams, initialMember
 
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = React.useState(false)
-  const [showRealName, setShowRealName] = React.useState(true);
+  const [showRealName, setShowRealName] = React.useState(false);
 
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
+
+  const handleShowRealNameChange = async (checked: boolean) => {
+    setShowRealName(checked);
+    if (checked && !namesLoaded) {
+      const names = await getAllMemberNames();
+      if (names) {
+        setMemberNames(names);
+        setNamesLoaded(true);
+      } else {
+        toast({
+          title: "名前の取得に失敗",
+          description: "本名リストの取得に失敗しました。後でもう一度お試しください。",
+          variant: "destructive",
+        });
+        setShowRealName(false); // エラー時はチェックを外す
+      }
+    }
+  };
 
   const handleAlertAction = async () => {
     if (!selectedMember) return;
@@ -422,21 +444,34 @@ export function MemberManagementClient({ initialMembers, allTeams, initialMember
   const DisplayNameCell = ({ row }: { row: any }) => {
     const member = row.original as MemberWithTeamsAndRelations;
     const discordUid = member.discord_uid;
-    const realName = initialMemberNames[discordUid];
     
     const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
     const discordUsername = rawUsername.split('#')[0];
 
+    const realName = memberNames[discordUid];
 
     let displayName = `@${discordUsername}`;
     let subText = member.discord_uid;
 
-    if (showRealName && realName) {
-      displayName = realName;
-      subText = `@${discordUsername}`;
-    } else if(showRealName) {
-      displayName = '名前不明';
-      subText = `@${discordUsername}`;
+    if (showRealName) {
+        if (namesLoaded && realName) {
+            displayName = realName;
+            subText = `@${discordUsername}`;
+        } else if (namesLoaded) {
+            displayName = '名前不明';
+            subText = `@${discordUsername}`;
+        } else {
+            // ローディングスケルトン
+            return (
+                 <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex flex-col gap-1">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-32" />
+                    </div>
+                </div>
+            )
+        }
     }
 
     return (
@@ -560,11 +595,11 @@ export function MemberManagementClient({ initialMembers, allTeams, initialMember
         const email = (member.email || '').toLowerCase();
         const studentNumber = (member.student_number || '').toLowerCase();
         const generation = String(member.generation).toLowerCase();
-        const realName = (initialMemberNames[member.discord_uid] || '').toLowerCase();
+        const realName = (memberNames[member.discord_uid] || '').toLowerCase();
         
-        return discordUsername.includes(search) || email.includes(search) || realName.includes(search) || studentNumber.includes(search) || generation.includes(search);
+        return discordUsername.includes(search) || email.includes(search) || (showRealName && realName.includes(search)) || studentNumber.includes(search) || generation.includes(search);
     }));
-}, [filterValue, initialMembers, initialMemberNames]);
+}, [filterValue, initialMembers, memberNames, showRealName]);
 
 
   return (
@@ -582,7 +617,7 @@ export function MemberManagementClient({ initialMembers, allTeams, initialMember
             <Checkbox 
               id="show-real-name" 
               checked={showRealName}
-              onCheckedChange={(checked) => setShowRealName(!!checked)}
+              onCheckedChange={(checked) => handleShowRealNameChange(!!checked)}
             />
             <label
               htmlFor="show-real-name"

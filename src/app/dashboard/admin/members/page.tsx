@@ -6,51 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 
 type MemberNameMap = { [key: string]: string };
 
-async function getAllMemberNames(): Promise<MemberNameMap> {
-    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
-    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
-
-    console.log(`[getAllMemberNames] Attempting to fetch all member names.`);
-
-    if (!apiUrl || !token) {
-        console.error(`[getAllMemberNames] Aborting: API URL or Token is missing.`);
-        return {};
-    }
-
-    try {
-        const response = await fetch(`${apiUrl}/api/members`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            },
-            cache: 'no-store',
-        });
-        
-        if (!response.ok) {
-            const responseText = await response.text();
-            console.error(`[getAllMemberNames] Failed to fetch - Status: ${response.status}, Body: ${responseText}`);
-            return {};
-        }
-        
-        const data = await response.json();
-        if (!data.success || !Array.isArray(data.data)) {
-            console.error(`[getAllMemberNames] API response was not successful or data is not an array.`);
-            return {};
-        }
-
-        const nameMap: MemberNameMap = data.data.reduce((acc: MemberNameMap, member: { uid: string, name: string }) => {
-            acc[member.uid] = member.name;
-            return acc;
-        }, {});
-        
-        console.log(`[getAllMemberNames] Successfully fetched and mapped ${Object.keys(nameMap).length} members.`);
-        return nameMap;
-    } catch (error) {
-        console.error(`[getAllMemberNames] Error fetching member names:`, error);
-        return {};
-    }
-}
-
-
 async function getMembersData() {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
@@ -110,7 +65,6 @@ async function getMembersData() {
 
 export default async function MemberManagementPage() {
     const { profiles, allTeams } = await getMembersData();
-    const memberNames = await getAllMemberNames();
     
     return (
         <Card>
@@ -119,7 +73,7 @@ export default async function MemberManagementPage() {
                 <CardDescription>部員全体のロール、ステータス、所属班を管理します。</CardDescription>
             </CardHeader>
             <CardContent>
-                <MemberManagementClient initialMembers={profiles} allTeams={allTeams} initialMemberNames={memberNames} />
+                <MemberManagementClient initialMembers={profiles} allTeams={allTeams} />
             </CardContent>
         </Card>
     );
