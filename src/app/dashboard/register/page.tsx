@@ -3,7 +3,7 @@ import { RegisterForm } from '@/components/dashboard/RegisterForm';
 import type { Team } from '@/lib/types';
 
 async function getTeams(): Promise<Team[]> {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data, error } = await supabase.from('teams').select('*');
     if (error) {
         console.error('Error fetching teams:', error);
