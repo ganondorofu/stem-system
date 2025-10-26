@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Allow cross-origin requests from proxy in development
+  allowedDevOrigins: ['test-app.yn3143.xyz'],
   images: {
     remotePatterns: [
       {
@@ -29,6 +31,20 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  // Allow access from proxy
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+    ];
   },
 };
 

@@ -18,10 +18,12 @@ export default function LoginPage() {
   const error = searchParams.get('error');
 
   const handleLogin = async () => {
+    const redirectUrl = 'https://test-app.yn3143.xyz/auth/callback';
+    console.log('[Login] Starting OAuth flow with redirect:', redirectUrl);
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        // redirectTo is removed to rely on Supabase's Site URL configuration
+        redirectTo: redirectUrl,
       },
     });
   };
