@@ -12,9 +12,6 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      db: {
-        schema: 'member',
-      },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value
