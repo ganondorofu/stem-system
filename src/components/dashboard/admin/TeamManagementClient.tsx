@@ -5,14 +5,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Trash2, Edit, Crown } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Crown, X } from 'lucide-react';
 import type { Team, Member, MemberTeamRelation, TeamLeader, EnrichedMember } from '@/lib/types';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { createTeam, deleteTeam, updateTeam, updateTeamLeader } from '@/lib/actions/teams';
+import { createTeam, deleteTeam, updateTeam, updateTeamLeaders } from '@/lib/actions/teams';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -65,11 +65,12 @@ export function TeamManagementClient({
     return allMembers.filter(m => memberIds.includes(m.supabase_auth_user_id));
   };
   
-  const getLeader = (teamId: string) => {
-      const leaderRelation = leaders.find(l => l.team_id === teamId);
-      if (!leaderRelation) return null;
-      return allMembers.find(m => m.supabase_auth_user_id === leaderRelation.member_id) || null;
-  }
+  const getLeaders = (teamId: string): EnrichedMember[] => {
+    const leaderRelations = leaders.filter(l => l.team_id === teamId);
+    if (!leaderRelations.length) return [];
+    const leaderIds = leaderRelations.map(l => l.member_id);
+    return allMembers.filter(m => leaderIds.includes(m.supabase_auth_user_id));
+  };
 
   const handleOpenDialog = (team: Team | null) => {
     setEditingTeam(team);
@@ -115,18 +116,18 @@ export function TeamManagementClient({
     setTeamToDelete(null);
   };
   
-  const handleLeaderChange = async (teamId: string, memberId: string | null) => {
+  const handleLeaderChange = async (teamId: string, memberIds: string[]) => {
       setIsSubmitting(true);
-      const result = await updateTeamLeader(teamId, memberId);
+      const result = await updateTeamLeaders(teamId, memberIds);
       if (result.error) {
           toast({ title: 'エラー', description: result.error, variant: 'destructive' });
       } else {
           toast({ title: '成功', description: '班長を更新しました。' });
-          if (memberId) {
-              setLeaders([...leaders.filter(l => l.team_id !== teamId), { team_id: teamId, member_id: memberId }]);
-          } else {
-              setLeaders(leaders.filter(l => l.team_id !== teamId));
-          }
+          // Remove old leaders for this team
+          const otherTeamLeaders = leaders.filter(l => l.team_id !== teamId);
+          // Add new leaders for this team
+          const newTeamLeaders = memberIds.map(id => ({ team_id: teamId, member_id: id }));
+          setLeaders([...otherTeamLeaders, ...newTeamLeaders]);
       }
       setIsSubmitting(false);
   }
@@ -144,13 +145,14 @@ export function TeamManagementClient({
       <Accordion type="single" collapsible className="w-full">
         {teams.map(team => {
           const teamMembers = getTeamMembers(team.id);
-          const leader = getLeader(team.id);
+          const teamLeaders = getLeaders(team.id);
           const memberOptions = teamMembers.map(m => ({
             value: m.supabase_auth_user_id,
             label: m.displayName || m.discord_uid,
             id: m.discord_uid,
             avatar: m.avatar_url
           }));
+          const leaderIds = teamLeaders.map(l => l.supabase_auth_user_id);
 
           return (
             <AccordionItem key={team.id} value={team.id}>
@@ -169,16 +171,30 @@ export function TeamManagementClient({
               <AccordionContent className="bg-muted/50">
                 <div className="p-4 space-y-4">
                   <h4 className="font-semibold">班長</h4>
-                  {leader && <Badge><Crown className="w-3 h-3 mr-1" />{leader.displayName}</Badge>}
+                   <div className="flex flex-wrap gap-2 mb-2">
+                        {teamLeaders.map(leader => (
+                            <Badge key={leader.supabase_auth_user_id} variant="secondary" className="pl-2">
+                                <Crown className="w-3 h-3 mr-1.5" />
+                                {leader.displayName}
+                                <button onClick={() => handleLeaderChange(team.id, leaderIds.filter(id => id !== leader.supabase_auth_user_id))} className="ml-1.5 rounded-full p-0.5 hover:bg-muted-foreground/20">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </Badge>
+                        ))}
+                    </div>
                    <Combobox
                         options={memberOptions}
-                        value={leader?.supabase_auth_user_id || ''}
-                        onSelect={(value) => handleLeaderChange(team.id, value === 'none' ? null : value)}
-                        placeholder="班長を検索 (ID or 名前)..."
+                        value={''}
+                        onSelect={(value) => {
+                            if (value && !leaderIds.includes(value)) {
+                                handleLeaderChange(team.id, [...leaderIds, value])
+                            }
+                        }}
+                        placeholder="班長を追加..."
                         triggerClass="max-w-xs"
                         disabled={isSubmitting}
                     />
-                  <p className="text-sm text-muted-foreground">この班に所属しているメンバーの中から班長を選択できます。</p>
+                  <p className="text-sm text-muted-foreground">この班に所属しているメンバーの中から班長を選択・追加できます。</p>
                 </div>
               </AccordionContent>
             </AccordionItem>

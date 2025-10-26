@@ -109,32 +109,38 @@ export async function deleteTeam(teamId: string): Promise<{ error: string | null
 }
 
 
-export async function updateTeamLeader(teamId: string, memberId: string | null): Promise<{ error: string | null }> {
+export async function updateTeamLeaders(teamId: string, memberIds: string[]): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
         const supabase = await createClient();
 
-        // Find the old and new leader's discord_uid to sync their roles
-        const { data: teamMembers } = await supabase.from('team_leaders')
+        // Find old leaders to sync their roles later
+        const { data: oldLeadersData, error: oldLeadersError } = await supabase.from('team_leaders')
             .select('member_id')
             .eq('team_id', teamId);
-
-        const oldLeaderId = teamMembers?.[0]?.member_id;
+        
+        if (oldLeadersError) throw oldLeadersError;
+        
+        const oldLeaderIds = oldLeadersData.map(l => l.member_id);
 
         const { error: deleteError } = await supabase.from('team_leaders').delete().eq('team_id', teamId);
         if (deleteError) throw deleteError;
 
-        if (memberId) {
-            const { error: insertError } = await supabase.from('team_leaders').insert({ team_id: teamId, member_id: memberId });
+        if (memberIds.length > 0) {
+            const newLeaders = memberIds.map(member_id => ({ team_id: teamId, member_id }));
+            const { error: insertError } = await supabase.from('team_leaders').insert(newLeaders);
             if (insertError) throw insertError;
         }
 
-        const idsToSync = [oldLeaderId, memberId].filter(Boolean) as string[];
+        const idsToSync = [...new Set([...oldLeaderIds, ...memberIds])];
+
         if (idsToSync.length > 0) {
-            const { data: membersToSync } = await supabase.from('members')
+            const { data: membersToSync, error: membersError } = await supabase.from('members')
                 .select('discord_uid')
                 .in('supabase_auth_user_id', idsToSync);
             
+            if (membersError) throw membersError;
+
             if (membersToSync) {
                 for (const member of membersToSync) {
                     await syncDiscordRoles(member.discord_uid);
@@ -145,6 +151,7 @@ export async function updateTeamLeader(teamId: string, memberId: string | null):
         revalidatePath('/dashboard/admin/teams');
         return { error: null };
     } catch (e: any) {
+        console.error("Error updating team leaders:", e);
         return { error: e.message };
     }
 }
