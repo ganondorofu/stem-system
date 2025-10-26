@@ -108,7 +108,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
       2: { label: "OB/OG", icon: GraduationCap }
   };
   const { label: statusLabel, icon: StatusIcon } = statusMap[member.status] || { label: "不明", icon: User };
-  const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.raw_user_meta_data?.name || '不明';
+  const discordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
 
 
   return (
@@ -441,7 +441,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const discordUid = member.discord_uid;
     const cachedName = displayNameCache[discordUid];
     const isLoading = loadingDisplayNames[discordUid];
-    const discordUsername = member.raw_user_meta_data?.user_name?.split('#')[0] || member.discord_uid;
+    const discordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name;
 
 
     React.useEffect(() => {
@@ -569,21 +569,22 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       sorting,
       columnFilters,
     },
+    initialState: {
+        columnVisibility: {},
+    }
   })
 
-  // displayName is now fetched on client, so we use a different value for filtering
   const filterValue = (table.getColumn("displayName")?.getFilterValue() as string) ?? "";
   React.useEffect(() => {
-    const filteredData = initialMembers.filter(member => {
-        const discordUsername = (member.raw_user_meta_data?.user_name || '').toLowerCase();
-        const email = member.email?.toLowerCase() || '';
-        const cachedName = displayNameCache[member.discord_uid]?.toLowerCase() || '';
+    setMembers(initialMembers.filter(member => {
+        const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase();
+        const email = (member.email || '').toLowerCase();
+        const cachedName = (displayNameCache[member.discord_uid] || '').toLowerCase();
         const search = filterValue.toLowerCase();
-
+        
         return discordUsername.includes(search) || email.includes(search) || cachedName.includes(search);
-    });
-    setMembers(filteredData);
-  }, [filterValue, initialMembers, displayNameCache]);
+    }));
+}, [filterValue, initialMembers, displayNameCache]);
 
 
   return (
@@ -754,3 +755,5 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
+
+    
