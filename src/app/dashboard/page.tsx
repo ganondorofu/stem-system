@@ -95,7 +95,7 @@ export default async function DashboardGatePage() {
                         </AlertDescription>
                     </Alert>
                      <Button asChild className="w-full">
-                        <a href="https://discord.gg/your-invite-link" target="_blank" rel="noopener noreferrer">
+                        <a href={process.env.NEXT_PUBLIC_DISCORD_INVITE_URL || 'https://discord.gg/your-invite-link'} target="_blank" rel="noopener noreferrer">
                             <Server className="mr-2 h-4 w-4" />
                             Discordサーバーに参加する
                         </a>
