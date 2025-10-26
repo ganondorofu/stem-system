@@ -498,21 +498,24 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     {
       accessorKey: "generation",
       header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          期
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
+        <div className="text-center">
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+            期
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
       ),
       cell: ({ row }) => <div className="text-center">{row.original.generation}期</div>,
     },
     {
         accessorKey: "student_number",
         header: "学籍番号",
+        cell: ({ row }) => <div className="text-left">{row.original.student_number}</div>,
     },
     {
       accessorKey: "status",
       header: "ステータス",
-      cell: ({ row }) => statusMap[row.original.status as keyof typeof statusMap] || "不明",
+      cell: ({ row }) => <div className="text-left">{statusMap[row.original.status as keyof typeof statusMap] || "不明"}</div>,
     },
     {
       accessorKey: "is_admin",
@@ -524,41 +527,43 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       cell: ({ row }) => {
         const member = row.original
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">メニューを開く</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>操作</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleProfileDialog(member)}}>
-                プロフィールを表示
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleEditProfileDialog(member)}>
-                プロフィールを編集
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
-                班を編集
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                setSelectedMember(member)
-                setAlertAction("toggleAdmin")
-                setIsAlertOpen(true)
-              }}>
-                {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => {
-                setSelectedMember(member)
-                setAlertAction("delete")
-                setIsAlertOpen(true)
-              }}>
-                メンバーを削除
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="text-right">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">メニューを開く</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>操作</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleProfileDialog(member)}}>
+                  プロフィールを表示
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditProfileDialog(member)}>
+                  プロフィールを編集
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
+                  班を編集
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setSelectedMember(member)
+                  setAlertAction("toggleAdmin")
+                  setIsAlertOpen(true)
+                }}>
+                  {member.is_admin ? "管理者権限を取り消す" : "管理者に設定"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onClick={() => {
+                  setSelectedMember(member)
+                  setAlertAction("delete")
+                  setIsAlertOpen(true)
+                }}>
+                  メンバーを削除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )
       },
     },
@@ -567,50 +572,53 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const table = useReactTable({
     data: members,
     columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
       columnFilters,
     },
-    initialState: {
-        columnVisibility: {},
-    }
   })
+  
+  const globalFilter = table.getState().globalFilter;
 
-  const filterValue = (table.getColumn("displayName")?.getFilterValue() as string) ?? "";
+  const handleGlobalFilterChange = (value: string) => {
+    table.setGlobalFilter(value);
+  }
+  
   React.useEffect(() => {
-    const search = filterValue.toLowerCase();
-    if (!search) {
-        setMembers(initialMembers);
-        return;
-    }
-    
-    setMembers(initialMembers.filter(member => {
-        const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
-        const email = (member.email || '').toLowerCase();
-        const studentNumber = (member.student_number || '').toLowerCase();
-        const generation = String(member.generation).toLowerCase();
-        const realName = (memberNames[member.discord_uid] || '').toLowerCase();
-        
-        return discordUsername.includes(search) || email.includes(search) || (showRealName && realName.includes(search)) || studentNumber.includes(search) || generation.includes(search);
-    }));
-}, [filterValue, initialMembers, memberNames, showRealName]);
+    const filterValue = globalFilter?.toLowerCase() || "";
+    table.setGlobalFilter(filterValue);
+    const filteredData = initialMembers.filter(member => {
+      const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
+      const discordUid = member.discord_uid.toLowerCase();
+      const realName = showRealName && namesLoaded ? (memberNames[member.discord_uid] || '').toLowerCase() : '';
+      const generation = String(member.generation);
+      const studentNumber = member.student_number || '';
+      const email = member.email || '';
+
+      return discordUsername.includes(filterValue) ||
+             discordUid.includes(filterValue) ||
+             (showRealName && realName.includes(filterValue)) ||
+             generation.includes(filterValue) ||
+             studentNumber.includes(filterValue) ||
+             email.includes(filterValue);
+    });
+    setMembers(filteredData);
+  }, [globalFilter, showRealName, namesLoaded, memberNames, initialMembers]);
 
 
   return (
     <div className="w-full">
       <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
         <Input
-          placeholder="名前, Email, 学籍番号などで絞り込み..."
-          value={filterValue}
-          onChange={(event) =>
-            table.getColumn("displayName")?.setFilterValue(event.target.value)
-          }
+          placeholder="名前, ID, 学籍番号などで絞り込み..."
+          value={globalFilter ?? ""}
+          onChange={(event) => handleGlobalFilterChange(event.target.value)}
           className="max-w-sm"
         />
         <div className="flex items-center space-x-2">
@@ -634,7 +642,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} style={{ textAlign: header.id === 'actions' ? 'right' : 'left' }}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -783,3 +791,5 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
+
+    
