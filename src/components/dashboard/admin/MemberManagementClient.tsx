@@ -341,6 +341,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = React.useState(false)
+  const [showRealName, setShowRealName] = React.useState(true);
 
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
@@ -426,12 +427,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const discordUid = member.discord_uid;
     const cachedName = displayNameCache[discordUid];
     const isLoading = loadingDisplayNames[discordUid];
-    const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name;
-    const discordUsername = rawUsername ? rawUsername.split('#')[0] : '';
+    const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
+    const discordUsername = rawUsername.split('#')[0];
 
 
     React.useEffect(() => {
-      if (discordUid && !cachedName && !isLoading) {
+      if (discordUid && !cachedName && !isLoading && showRealName) {
         setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: true }));
         getMemberDisplayName(discordUid)
           .then(name => {
@@ -446,9 +447,18 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: false }));
           });
       }
-    }, [discordUid, cachedName, isLoading, member]);
+    }, [discordUid, cachedName, isLoading, member, showRealName]);
 
-    const displayName = discordUid ? (cachedName || '読み込み中...') : (member.raw_user_meta_data?.name || '名前不明');
+    let displayName = discordUsername;
+    let subText = member.discord_uid;
+
+    if (showRealName) {
+      displayName = discordUid ? (cachedName || '読み込み中...') : (member.raw_user_meta_data?.name || '名前不明');
+      subText = `@${discordUsername}`;
+    }
+
+    const showSkeleton = showRealName && (isLoading || (!cachedName && discordUid));
+
 
     return (
       <div className="flex items-center gap-3">
@@ -456,12 +466,15 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <AvatarImage src={member.avatar_url || ''} />
           <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
         </Avatar>
-        {isLoading || (!cachedName && discordUid) ? (
-           <Skeleton className="h-5 w-24" />
+        {showSkeleton ? (
+           <div className="flex flex-col gap-1">
+             <Skeleton className="h-5 w-24" />
+             <Skeleton className="h-3 w-16" />
+           </div>
         ) : (
           <div className="flex flex-col">
             <span className="font-medium">{displayName}</span>
-            <span className="text-xs text-muted-foreground font-mono">@{discordUsername}</span>
+            <span className="text-xs text-muted-foreground font-mono">{subText}</span>
           </div>
         )}
       </div>
@@ -571,7 +584,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     }
     
     setMembers(initialMembers.filter(member => {
-        const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase();
+        const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
         const email = (member.email || '').toLowerCase();
         const studentNumber = (member.student_number || '').toLowerCase();
         const generation = String(member.generation).toLowerCase();
@@ -584,7 +597,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
+      <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
         <Input
           placeholder="名前, Email, 学籍番号などで絞り込み..."
           value={filterValue}
@@ -593,6 +606,19 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           }
           className="max-w-sm"
         />
+        <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="show-real-name" 
+              checked={showRealName}
+              onCheckedChange={(checked) => setShowRealName(!!checked)}
+            />
+            <label
+              htmlFor="show-real-name"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              本名を表示する
+            </label>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
