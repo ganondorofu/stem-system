@@ -15,7 +15,6 @@ const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
   { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
   { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
-  { href: '/dashboard/admin/generations', label: '期生ロール管理', icon: Settings, admin: true },
 ];
 
 export default function DashboardSidebar({ user }: { user: FullUserProfile | null }) {
