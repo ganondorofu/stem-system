@@ -71,7 +71,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (isOpen && member) {
+    if (isOpen && member && member.discord_uid) {
       setIsLoading(true);
       getMemberDisplayName(member.discord_uid)
         .then(name => {
@@ -82,6 +82,9 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
           setDisplayName(member.raw_user_meta_data?.name || '名前不明');
           setIsLoading(false);
         });
+    } else if (isOpen && member) {
+        setDisplayName(member.raw_user_meta_data?.name || '名前不明');
+        setIsLoading(false);
     }
   }, [isOpen, member]);
 
@@ -426,15 +429,15 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
 
     React.useEffect(() => {
-      if (!cachedName && !isLoading) {
+      if (discordUid && !cachedName && !isLoading) {
         setLoadingDisplayNames(prev => ({ ...prev, [discordUid]: true }));
         getMemberDisplayName(discordUid)
           .then(name => {
-            const finalName = name || member.raw_user_meta_data?.name || member.discord_uid;
+            const finalName = name || member.raw_user_meta_data?.name || '名前不明';
             setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
           })
           .catch(() => {
-            const finalName = member.raw_user_meta_data?.name || member.discord_uid;
+            const finalName = member.raw_user_meta_data?.name || '名前不明';
             setDisplayNameCache(prev => ({ ...prev, [discordUid]: finalName }));
           })
           .finally(() => {
@@ -443,17 +446,19 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
       }
     }, [discordUid, cachedName, isLoading, member]);
 
+    const displayName = discordUid ? (cachedName || '読み込み中...') : (member.raw_user_meta_data?.name || '名前不明');
+
     return (
       <div className="flex items-center gap-3">
         <Avatar>
           <AvatarImage src={member.avatar_url || ''} />
           <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
         </Avatar>
-        {isLoading || !cachedName ? (
+        {isLoading || (!cachedName && discordUid) ? (
            <Skeleton className="h-5 w-24" />
         ) : (
           <div className="flex flex-col">
-            <span className="font-medium">{cachedName}</span>
+            <span className="font-medium">{displayName}</span>
             <span className="text-xs text-muted-foreground font-mono">@{discordUsername}</span>
           </div>
         )}

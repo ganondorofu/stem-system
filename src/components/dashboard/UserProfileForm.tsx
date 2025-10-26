@@ -16,16 +16,21 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
 
     useEffect(() => {
         setIsLoading(true);
-        getMemberDisplayName(user.discord_uid)
-            .then(name => {
-                setDisplayName(name || user.raw_user_meta_data?.name || '名前不明');
-            })
-            .catch(() => {
-                setDisplayName(user.raw_user_meta_data?.name || '名前不明');
-            })
-            .finally(() => {
-                setIsLoading(false);
-            });
+        if (user.discord_uid) {
+            getMemberDisplayName(user.discord_uid)
+                .then(name => {
+                    setDisplayName(name || user.raw_user_meta_data?.name || '名前不明');
+                })
+                .catch(() => {
+                    setDisplayName(user.raw_user_meta_data?.name || '名前不明');
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                });
+        } else {
+             setDisplayName(user.raw_user_meta_data?.name || '名前不明');
+             setIsLoading(false);
+        }
     }, [user.discord_uid, user.raw_user_meta_data?.name]);
     
     const statusMap: { [key: number]: { label: string, icon: React.ElementType } } = {

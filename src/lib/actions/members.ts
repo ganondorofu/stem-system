@@ -140,7 +140,7 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
     }
 
     try {
-        const response = await fetch(`${apiUrl}/api/member/name?discord_uid=${discordUid}`, {
+        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
             },
