@@ -4,9 +4,10 @@ import { UserProfile } from '@/components/dashboard/UserProfileForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DiscordMemberStatus, Team, MemberWithTeams } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info, TriangleAlert, Server, LogIn } from 'lucide-react';
+import { Info, TriangleAlert, Server, LogIn, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { ReSyncForm } from '@/components/dashboard/ReSyncForm';
 
 async function getDiscordMemberStatus(discordUid: string): Promise<DiscordMemberStatus | null> {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
@@ -112,12 +113,42 @@ export default async function DashboardGatePage() {
         );
     }
 
+    // Check if user has "連携済み" role (configurable via env)
+    const linkedRoleName = process.env.NEXT_PUBLIC_DISCORD_LINKED_ROLE_NAME || '連携済み';
+    const hasLinkedRole = discordStatus.current_roles?.includes(linkedRoleName) ?? false;
+
     const { data: memberProfile } = await supabase
         .from('members')
         .select('*')
         .eq('supabase_auth_user_id', user.id)
         .is('deleted_at', null)
         .single();
+    
+    // If user is in server but doesn't have linked role and has a profile, show re-sync form
+    if (!hasLinkedRole && memberProfile) {
+        return (
+            <Card className="w-full max-w-lg mx-auto">
+                <CardHeader>
+                    <CardTitle>Discord連携が必要です</CardTitle>
+                    <CardDescription>
+                        Discordサーバーには参加していますが、連携が完了していません。
+                        姓名を入力してDiscord連携を再設定してください。
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                    <Alert>
+                        <Link2 className="h-4 w-4" />
+                        <AlertTitle>Discord連携が未完了</AlertTitle>
+                        <AlertDescription>
+                            以前サーバーを脱退した、またはロールが削除された可能性があります。
+                            下記のフォームから再連携してください。
+                        </AlertDescription>
+                    </Alert>
+                    <ReSyncForm />
+                </CardContent>
+            </Card>
+        );
+    }
     
     if (!memberProfile) {
         return redirect('/dashboard/register');
