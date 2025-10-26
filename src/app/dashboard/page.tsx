@@ -47,7 +47,7 @@ async function getDiscordMemberStatus(discordUid: string): Promise<DiscordMember
 
 
 export default async function DashboardGatePage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
