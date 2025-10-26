@@ -69,8 +69,10 @@ async function syncDiscordRoles(discordUid: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
+    console.log(`[Discord Bot] Attempting to sync roles for discord_uid: ${discordUid}`);
+
     if (!apiUrl || !token) {
-        console.error('API URL or Bearer Token is not configured for Discord role sync.');
+        console.error('[Discord Bot] API URL or Bearer Token is not configured for Discord role sync.');
         return; // Don't throw error, just log and skip sync
     }
     
@@ -82,10 +84,13 @@ async function syncDiscordRoles(discordUid: string) {
             cache: 'no-store',
         });
          if (!res.ok) {
-            console.error('Failed to sync roles:', res.status, await res.text());
+            const errorText = await res.text();
+            console.error(`[Discord Bot] Failed to sync roles for ${discordUid}. Status: ${res.status}, Body: ${errorText}`);
+        } else {
+            console.log(`[Discord Bot] Successfully initiated role sync for discord_uid: ${discordUid}`);
         }
     } catch (e) {
-        console.error('Error during role sync:', e);
+        console.error(`[Discord Bot] Error during role sync for ${discordUid}:`, e);
     }
 }
 
@@ -93,12 +98,13 @@ async function syncDiscordNickname(discordUid: string, name: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
+    console.log(`[Discord Bot] Attempting to update nickname for discord_uid: ${discordUid} to a name based on: "${name}"`);
+
     if (!apiUrl || !token) {
-        console.error('API URL or Bearer Token is not configured for Discord nickname sync.');
+        console.error('[Discord Bot] API URL or Bearer Token is not configured for Discord nickname sync.');
         return;
     }
     
-    // The bot will construct the full nickname based on DB data. We just provide the name.
     const body = {
         discord_uid: discordUid,
         name: name,
@@ -113,10 +119,12 @@ async function syncDiscordNickname(discordUid: string, name: string) {
         });
         if (!res.ok) {
             const errorBody = await res.text();
-            console.error('Failed to update nickname:', res.status, errorBody);
+            console.error(`[Discord Bot] Failed to update nickname for ${discordUid}. Status: ${res.status}, Body: ${errorBody}`);
+        } else {
+             console.log(`[Discord Bot] Successfully initiated nickname update for discord_uid: ${discordUid}`);
         }
     } catch(e) {
-        console.error('Error during nickname update:', e);
+        console.error(`[Discord Bot] Error during nickname update for ${discordUid}:`, e);
     }
 }
 
@@ -124,7 +132,10 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
+    console.log(`[Discord Bot] Attempting to get display name for discord_uid: ${discordUid}`);
+
     if (!apiUrl || !token || !discordUid) {
+        console.error(`[Discord Bot] Cannot get display name. API URL, Token, or Discord UID is missing.`);
         return null;
     }
 
@@ -137,14 +148,16 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
         });
 
         if (!response.ok) {
-            console.error(`Failed to fetch nickname for ${discordUid}:`, response.status, await response.text());
+            const errorText = await response.text();
+            console.error(`[Discord Bot] Failed to fetch nickname for ${discordUid}: Status ${response.status}, Body: ${errorText}`);
             return null;
         }
         
         const data = await response.json();
+        console.log(`[Discord Bot] Fetched display name data for ${discordUid}:`, data);
         return data.name_only || null;
     } catch (error) {
-        console.error(`Error fetching nickname for ${discordUid}:`, error);
+        console.error(`[Discord Bot] Error fetching nickname for ${discordUid}:`, error);
         return null;
     }
 }
@@ -454,3 +467,5 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
         return { error: e.message };
     }
 }
+
+    
