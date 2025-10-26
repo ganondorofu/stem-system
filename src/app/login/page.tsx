@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Club } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import React, { Suspense } from 'react';
 
 const DiscordIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-discord mr-2" viewBox="0 0 16 16">
@@ -12,17 +13,16 @@ const DiscordIcon = () => (
   </svg>
 );
 
-export default function LoginPage() {
+function LoginPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
   const handleLogin = async () => {
-    const redirectUrl = `${window.location.origin}/auth/callback`;
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: redirectUrl,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
   };
@@ -47,4 +47,12 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+export default function LoginPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPage />
+    </Suspense>
+  )
 }
