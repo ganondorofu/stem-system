@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { FullUserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Club, LogOut, User, Users, Shield, Home } from 'lucide-react';
+import { Club, LogOut, User, Users, Shield, Home, Settings } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
 import { useState, useEffect } from 'react';
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
   { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
   { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
+  { href: '/dashboard/admin/generations', label: '期生ロール管理', icon: Settings, admin: true },
 ];
 
 export default function DashboardSidebar({ user }: { user: FullUserProfile | null }) {

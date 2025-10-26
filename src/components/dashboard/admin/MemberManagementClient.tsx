@@ -94,7 +94,8 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
       2: { label: "OB/OG", icon: GraduationCap }
   };
   const { label: statusLabel, icon: StatusIcon } = statusMap[member.status] || { label: "不明", icon: User };
-  const discordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
+  const rawDiscordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
+  const discordUsername = rawDiscordUsername.split('#')[0];
 
 
   return (
@@ -425,7 +426,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const discordUid = member.discord_uid;
     const cachedName = displayNameCache[discordUid];
     const isLoading = loadingDisplayNames[discordUid];
-    const discordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name;
+    const rawDiscordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name;
+    const discordUsername = rawDiscordUsername ? rawDiscordUsername.split('#')[0] : '不明';
 
 
     React.useEffect(() => {
@@ -569,7 +571,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     }
     
     setMembers(initialMembers.filter(member => {
-        const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase();
+        const rawDiscordUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '';
+        const discordUsername = rawDiscordUsername.split('#')[0].toLowerCase();
         const email = (member.email || '').toLowerCase();
         const studentNumber = (member.student_number || '').toLowerCase();
         const generation = String(member.generation).toLowerCase();

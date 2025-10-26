@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu, Club, Home, Users, Shield, LogOut, User } from 'lucide-react';
+import { Menu, Club, Home, Users, Shield, LogOut, User, Settings } from 'lucide-react';
 import type { FullUserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
   { href: '/dashboard/admin/members', label: 'メンバー管理', icon: Users, admin: true },
   { href: '/dashboard/admin/teams', label: '班管理', icon: Shield, admin: true },
+  { href: '/dashboard/admin/generations', label: '期生ロール管理', icon: Settings, admin: true },
 ];
 
 export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
@@ -35,6 +36,12 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
   };
   
   const isAdmin = user?.is_admin ?? false;
+  
+  const getPageTitle = () => {
+    if (pathname === '/dashboard') return 'マイプロフィール';
+    const currentItem = navItems.find(item => pathname.startsWith(item.href) && item.href !== '/dashboard');
+    return currentItem?.label || 'ダッシュボード';
+  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-30 md:hidden">
@@ -98,7 +105,7 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
       </Sheet>
       <div className="w-full flex-1">
         <h1 className="font-semibold text-lg">
-          {navItems.find(item => pathname.startsWith(item.href))?.label || 'ダッシュボード'}
+          {getPageTitle()}
         </h1>
       </div>
     </header>
