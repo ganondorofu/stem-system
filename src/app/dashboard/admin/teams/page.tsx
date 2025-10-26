@@ -9,7 +9,10 @@ async function getDiscordName(discordUid: string): Promise<string | null> {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
+    console.log(`[getDiscordName] Attempting to fetch name for discord_uid: ${discordUid}`);
+
     if (!apiUrl || !token || !discordUid) {
+        console.error(`[getDiscordName] Aborting: API URL, Token, or Discord UID is missing.`);
         return null;
     }
 
@@ -20,16 +23,18 @@ async function getDiscordName(discordUid: string): Promise<string | null> {
             },
             cache: 'no-store',
         });
+        
+        const responseText = await response.text();
+        console.log(`[getDiscordName] Response for ${discordUid} - Status: ${response.status}, Body: ${responseText}`);
 
         if (!response.ok) {
-            console.error(`Failed to fetch nickname for ${discordUid}:`, response.status, await response.text());
             return null;
         }
         
-        const data = await response.json();
+        const data = JSON.parse(responseText);
         return data.name_only || null;
     } catch (error) {
-        console.error(`Error fetching nickname for ${discordUid}:`, error);
+        console.error(`[getDiscordName] Error fetching nickname for ${discordUid}:`, error);
         return null;
     }
 }
