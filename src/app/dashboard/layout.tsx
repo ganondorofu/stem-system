@@ -30,12 +30,14 @@ export default async function DashboardLayout({
   } : null;
 
   return (
-    <div className="grid h-screen w-full overflow-hidden md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+    <div className="grid h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <DashboardSidebar user={fullProfile} />
-      <div className="flex flex-col">
+      <div className="flex flex-col overflow-hidden">
         <DashboardHeader user={fullProfile} />
-        <main className="flex flex-1 flex-col gap-4 overflow-auto p-4 lg:gap-6 lg:p-6 bg-muted/20">
-          {children}
+        <main className="flex-1 overflow-auto bg-muted/20 p-4 lg:p-6">
+          <div className="space-y-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>
