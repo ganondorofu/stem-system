@@ -166,7 +166,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                                     <AlertDialogHeader>
                                     <AlertDialogTitle>プロフィール情報の変更について</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        学籍番号以外の情報（氏名、期、ステータスなど）の変更は、Discordで役員に連絡してください。
+                                        学籍番号以外の情報（氏名、期、ステータスなど）の変更は、Discord等で役員に連絡してください。
                                     </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
