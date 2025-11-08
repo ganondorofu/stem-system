@@ -2,20 +2,52 @@
 
 import type { MemberWithTeams } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { User, GraduationCap, School, Building, Shield, Star } from 'lucide-react';
+import { User, GraduationCap, School, Building, Shield, Star, Edit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { useEffect, useState } from 'react';
-import { getMemberDisplayName } from '@/lib/actions/members';
+import { getMemberDisplayName, updateMyProfile } from '@/lib/actions/members';
 import { Skeleton } from '../ui/skeleton';
+import { Button } from '../ui/button';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Input } from '../ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
+const profileFormSchema = z.object({
+  student_number: z.string().regex(/^[0-9]*$/, '学籍番号は半角数字で入力してください。').optional().nullable(),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export function UserProfile({ user }: { user: MemberWithTeams }) {
+    const { toast } = useToast();
     const [displayName, setDisplayName] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingName, setIsLoadingName] = useState(true);
+
+    const form = useForm<ProfileFormValues>({
+        resolver: zodResolver(profileFormSchema),
+        defaultValues: {
+            student_number: user.student_number || '',
+        },
+    });
 
     useEffect(() => {
-        setIsLoading(true);
+        setIsLoadingName(true);
         if (user.discord_uid) {
             getMemberDisplayName(user.discord_uid)
                 .then(name => {
@@ -25,11 +57,11 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                     setDisplayName(user.raw_user_meta_data?.name || '名前不明');
                 })
                 .finally(() => {
-                    setIsLoading(false);
+                    setIsLoadingName(false);
                 });
         } else {
              setDisplayName(user.raw_user_meta_data?.name || '名前不明');
-             setIsLoading(false);
+             setIsLoadingName(false);
         }
     }, [user.discord_uid, user.raw_user_meta_data?.name]);
     
@@ -39,9 +71,25 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const rawUsername = user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明';
-    const discordUsername = rawUsername.split('#')[0];
+    const rawUsername = (user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明').split('#')[0];
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
+
+    const onSubmit = async (data: ProfileFormValues) => {
+        const result = await updateMyProfile(data);
+        if (result.error) {
+            toast({
+                title: '更新失敗',
+                description: result.error,
+                variant: 'destructive',
+            });
+        } else {
+            toast({
+                title: '更新成功',
+                description: '学籍番号を更新しました。',
+            });
+             form.reset({ student_number: data.student_number });
+        }
+    }
 
     return (
         <div className="grid md:grid-cols-3 gap-6">
@@ -50,8 +98,8 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                     <AvatarImage src={user.avatar_url ?? undefined} alt={displayName ?? ''}/>
                     <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                 </Avatar>
-                {isLoading ? <Skeleton className="h-8 w-40" /> : <h2 className="text-2xl font-bold font-headline">{displayName}</h2>}
-                <p className="text-muted-foreground text-sm">@{discordUsername}</p>
+                {isLoadingName ? <Skeleton className="h-8 w-40" /> : <h2 className="text-2xl font-bold font-headline">{displayName}</h2>}
+                <p className="text-muted-foreground text-sm">@{rawUsername}</p>
                 {user.is_admin && <Badge variant="destructive" className="mt-2"><Star className="w-3 h-3 mr-1"/>管理者</Badge>}
             </div>
             <div className="md:col-span-2 space-y-6">
@@ -75,18 +123,58 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                                 <p className="font-semibold">{statusLabel}</p>
                             </div>
                         </div>
-                        {user.student_number && (
+                        {user.status !== 2 && ( // OB/OGでない場合のみ表示
                             <>
                                 <Separator />
-                                <div className="flex items-center gap-4">
-                                    <School className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">学籍番号</p>
-                                        <p className="font-semibold">{user.student_number}</p>
-                                    </div>
-                                </div>
+                                <Form {...form}>
+                                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="student_number"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className='flex items-center gap-4'>
+                                                        <School className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                                        <span className="text-sm text-muted-foreground">学籍番号</span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <div className="flex gap-2 items-center">
+                                                            <Input placeholder="学籍番号を入力" {...field} value={field.value || ''} className="max-w-xs" />
+                                                            <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                                                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                                更新
+                                                            </Button>
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </form>
+                                </Form>
                             </>
                         )}
+                         <div className="pt-2">
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <Edit className="mr-2 h-4 w-4"/>
+                                        その他の情報の変更申請
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>プロフィール情報の変更について</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        学籍番号以外の情報（氏名、期、ステータスなど）の変更は、Discordで役員に連絡してください。
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogAction>閉じる</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
