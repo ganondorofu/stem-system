@@ -183,7 +183,7 @@ export default async function DashboardGatePage() {
     };
 
     return (
-        <div className="space-y-6">
+        <>
             <Card>
                 <CardHeader>
                     <CardTitle>マイプロフィール</CardTitle>
@@ -193,6 +193,6 @@ export default async function DashboardGatePage() {
                     <UserProfile user={profileWithTeams} />
                 </CardContent>
             </Card>
-        </div>
+        </>
     );
 }
