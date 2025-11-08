@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { syncAllDiscordRoles, graduateGeneration, updateStatusesForNewAcademicYear } from '@/lib/actions/members';
-import { Loader2, UserCog, GraduationCap, RefreshCw } from 'lucide-react';
+import { syncAllDiscordRoles, updateStatusesForNewAcademicYear } from '@/lib/actions/members';
+import { Loader2, UserCog, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -23,10 +23,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-const graduateSchema = z.object({
-  generation: z.coerce.number().int().positive('期数は正の整数である必要があります。'),
-});
-
 const newYearSchema = z.object({
     highSchoolFirstYearGeneration: z.coerce.number().int().positive('期数は正の整数である必要があります。'),
 });
@@ -34,27 +30,17 @@ const newYearSchema = z.object({
 export function SystemTasksClient() {
     const { toast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
-    const [isGraduating, setIsGraduating] = useState(false);
     const [isUpdatingYear, setIsUpdatingYear] = useState(false);
 
     const [isAlertOpen, setIsAlertOpen] = useState(false);
-    const [alertAction, setAlertAction] = useState<'sync' | 'graduate' | 'newYear' | null>(null);
+    const [alertAction, setAlertAction] = useState<'sync' | 'newYear' | null>(null);
     
-    const graduateForm = useForm<z.infer<typeof graduateSchema>>({
-        resolver: zodResolver(graduateSchema),
-    });
     const newYearForm = useForm<z.infer<typeof newYearSchema>>({
         resolver: zodResolver(newYearSchema),
     });
 
     const handleSyncClick = () => {
         setAlertAction('sync');
-        setIsAlertOpen(true);
-    };
-
-    const handleGraduateSubmit = (values: z.infer<typeof graduateSchema>) => {
-        graduateForm.setValue('generation', values.generation);
-        setAlertAction('graduate');
         setIsAlertOpen(true);
     };
     
@@ -77,19 +63,6 @@ export function SystemTasksClient() {
             });
             setIsSyncing(false);
         }
-
-        if (alertAction === 'graduate') {
-            const generation = graduateForm.getValues('generation');
-            setIsGraduating(true);
-            const result = await graduateGeneration(generation);
-            toast({
-                title: result.error ? 'エラー' : '成功',
-                description: result.error ? `卒業処理に失敗しました: ${result.error}` : `${generation}期の${result.count}人をOB/OGに更新しました。`,
-                variant: result.error ? 'destructive' : 'default',
-            });
-            setIsGraduating(false);
-            graduateForm.reset();
-        }
         
         if (alertAction === 'newYear') {
             const generation = newYearForm.getValues('highSchoolFirstYearGeneration');
@@ -111,10 +84,6 @@ export function SystemTasksClient() {
     const getAlertDescription = () => {
         if (alertAction === 'sync') {
             return '全メンバーのDiscordロールをデータベースの情報に基づいて更新します。この処理は完了まで数分かかる場合があります。本当に実行しますか？';
-        }
-        if (alertAction === 'graduate') {
-            const generation = graduateForm.getValues('generation');
-            return `${generation}期に所属する全ての現役メンバーのステータスを「OB/OG」に変更します。この操作は元に戻せません。本当によろしいですか？`;
         }
         if (alertAction === 'newYear') {
             const generation = newYearForm.getValues('highSchoolFirstYearGeneration');
@@ -207,59 +176,6 @@ export function SystemTasksClient() {
                 </CardContent>
             </Card>
 
-            <Separator />
-
-            <Card className="border-destructive/50">
-                <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <GraduationCap className="h-8 w-8 text-destructive" />
-                        <div>
-                            <CardTitle>【旧機能】期生をOB/OGに更新（卒業処理）</CardTitle>
-                            <CardDescription>
-                                指定した期数のメンバー全員を「OB/OG」ステータスに一括で変更します。
-                            </CardDescription>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        通常は上記の「年度更新」機能を使用してください。この機能は、特定の期だけを手動で卒業させたい場合などの特殊な状況でのみ使用します。この操作は元に戻せません。
-                    </p>
-                    <Form {...graduateForm}>
-                        <form onSubmit={graduateForm.handleSubmit(handleGraduateSubmit)} className="flex items-end gap-4">
-                            <FormField
-                                control={graduateForm.control}
-                                name="generation"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>期数</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                placeholder="例: 10"
-                                                {...field}
-                                                className="w-32"
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="submit" variant="destructive" disabled={isGraduating}>
-                                {isGraduating ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        更新中...
-                                    </>
-                                ) : (
-                                    'OB/OGに更新'
-                                )}
-                            </Button>
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
-
             <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -272,7 +188,6 @@ export function SystemTasksClient() {
                         <AlertDialogCancel>キャンセル</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={executeAction}
-                            className={alertAction === 'graduate' ? 'bg-destructive hover:bg-destructive/90' : ''}
                         >
                             実行
                         </AlertDialogAction>
