@@ -3,8 +3,8 @@ import { MemberManagementClient } from '@/components/dashboard/admin/MemberManag
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Member, Team, MemberWithTeamsAndRelations, MemberTeamRelation, EnrichedMember } from '@/lib/types';
 import { createClient } from '@/lib/supabase/server';
-
-type MemberNameMap = { [key: string]: string };
+import React, { Suspense } from 'react';
+import Loading from './loading';
 
 async function getMembersData() {
     const supabase = await createClient();
@@ -63,9 +63,12 @@ async function getMembersData() {
     };
 }
 
-export default async function MemberManagementPage() {
+async function MemberData() {
     const { profiles, allTeams } = await getMembersData();
-    
+    return <MemberManagementClient initialMembers={profiles} allTeams={allTeams} />;
+}
+
+export default async function MemberManagementPage() {
     return (
         <Card>
             <CardHeader>
@@ -73,7 +76,9 @@ export default async function MemberManagementPage() {
                 <CardDescription>部員全体のロール、ステータス、所属班を管理します。</CardDescription>
             </CardHeader>
             <CardContent>
-                <MemberManagementClient initialMembers={profiles} allTeams={allTeams} />
+                <Suspense fallback={<Loading />}>
+                    <MemberData />
+                </Suspense>
             </CardContent>
         </Card>
     );
