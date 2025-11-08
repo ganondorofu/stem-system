@@ -52,13 +52,13 @@ export function SystemTasksClient() {
         setIsAlertOpen(true);
     };
 
-    const handleGraduateSubmit = (values: z.infer<typeof graduateSchema>>) => {
+    const handleGraduateSubmit = (values: z.infer<typeof graduateSchema>) => {
         graduateForm.setValue('generation', values.generation);
         setAlertAction('graduate');
         setIsAlertOpen(true);
     };
     
-    const handleNewYearSubmit = (values: z.infer<typeof newYearSchema>>) => {
+    const handleNewYearSubmit = (values: z.infer<typeof newYearSchema>) => {
         newYearForm.setValue('highSchoolFirstYearGeneration', values.highSchoolFirstYearGeneration);
         setAlertAction('newYear');
         setIsAlertOpen(true);
