@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { FullUserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Club, LogOut, User, Users, Shield, Home, Settings, Cog } from 'lucide-react';
+import { Club, LogOut, User, Users, Shield, Home, Cog } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
 import { useState, useEffect } from 'react';
