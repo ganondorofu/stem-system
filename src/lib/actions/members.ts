@@ -563,46 +563,6 @@ export async function syncAllDiscordRoles(): Promise<{ error: string | null, mes
         return { error: e.message, message: '' };
     }
 }
-
-export async function graduateGeneration(generation: number): Promise<{ error: string | null, count: number }> {
-     try {
-        await checkAdmin();
-        if (!generation || generation <= 0) {
-            return { error: '有効な期数を指定してください。', count: 0 };
-        }
-        
-        const supabase = await createClient();
-
-        const { data: membersToUpdate, error: selectError } = await supabase
-            .from('members')
-            .select('supabase_auth_user_id, discord_uid')
-            .eq('generation', generation)
-            .neq('status', 2) // Already OB/OG
-            .is('deleted_at', null);
-        
-        if (selectError) throw selectError;
-
-        if (!membersToUpdate || membersToUpdate.length === 0) {
-            return { error: `対象の期生（${generation}期）が見つからないか、既にOB/OGです。`, count: 0 };
-        }
-
-        const { error: updateError } = await supabase
-            .from('members')
-            .update({ status: 2 }) // 2: OB/OG
-            .eq('generation', generation);
-
-        if (updateError) throw updateError;
-        
-        // Sync roles for all members after the update
-        await syncAllDiscordRoles();
-
-        revalidatePath('/dashboard/admin/members');
-
-        return { error: null, count: membersToUpdate.length };
-    } catch (e: any) {
-        return { error: e.message, count: 0 };
-    }
-}
     
 export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGeneration: number): Promise<{ error: string | null, message: string }> {
     try {
@@ -651,7 +611,7 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
         // Update OB/OG
         const { error: obError } = await supabase
-            from('members')
+            .from('members')
             .update({ status: 2 }) // 2: OB/OG
             .not('generation', 'in', `(${allStudentGenerations.join(',')})`);
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
