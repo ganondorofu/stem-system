@@ -72,7 +72,7 @@ export function SystemTasksClient() {
             const result = await syncAllDiscordRoles();
             toast({
                 title: result.error ? 'エラー' : '成功',
-                description: result.error ? `ロールの同期に失敗しました: ${result.error}` : `${result.count}人のメンバーのDiscordロール同期を開始しました。`,
+                description: result.error ? `ロールの同期に失敗しました: ${result.error}` : result.message,
                 variant: result.error ? 'destructive' : 'default',
             });
             setIsSyncing(false);
@@ -97,7 +97,7 @@ export function SystemTasksClient() {
             const result = await updateStatusesForNewAcademicYear(generation);
             toast({
                 title: result.error ? 'エラー' : '成功',
-                description: result.error ? `年度更新に失敗しました: ${result.error}` : `${result.count}人のメンバーのステータスを更新しました。`,
+                description: result.error ? `年度更新に失敗しました: ${result.error}` : result.message,
                 variant: result.error ? 'destructive' : 'default',
             });
             setIsUpdatingYear(false);
