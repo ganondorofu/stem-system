@@ -520,27 +520,47 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
 }
 
 
-export async function syncAllDiscordRoles(): Promise<{ error: string | null, count: number }> {
+export async function syncAllDiscordRoles(): Promise<{ error: string | null, message: string }> {
     try {
         await checkAdmin();
-        const supabase = await createClient();
+        const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+        const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
-        const { data: members, error } = await supabase
-            .from('members')
-            .select('discord_uid')
-            .is('deleted_at', null);
-
-        if (error) throw error;
-        if (!members || members.length === 0) {
-            return { error: '同期対象のメンバーが見つかりません。', count: 0 };
+        if (!apiUrl || !token) {
+            throw new Error('API URL or Bearer Token is not configured for Discord role sync.');
         }
 
-        // Run sync operations in parallel
-        await Promise.all(members.map(member => syncDiscordRoles(member.discord_uid)));
+        const res = await fetch(`${apiUrl}/api/roles/sync-all`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            cache: 'no-store',
+        });
 
-        return { error: null, count: members.length };
+        const result = await res.json();
+
+        if (!res.ok || !result.success) {
+            const errorMessage = result.error || `API returned status ${res.status}`;
+            console.error('[Discord Bot] Failed to sync all roles.', errorMessage);
+            throw new Error(errorMessage);
+        }
+        
+        if (result.message === 'No members to sync') {
+             return { error: null, message: '同期対象のメンバーが見つかりませんでした。' };
+        }
+
+        const successMessage = `${result.synced}人の同期に成功しました。`;
+        const failureMessage = result.failed > 0 ? `${result.failed}人の同期に失敗しました。` : '';
+        const totalMessage = `(合計: ${result.total}人)`;
+        
+        let finalMessage = `${successMessage} ${failureMessage} ${totalMessage}`.trim();
+        if (result.errors && result.errors.length > 0) {
+            console.error('[Discord Bot] Sync-all errors:', result.errors);
+        }
+
+        return { error: null, message: finalMessage };
+
     } catch (e: any) {
-        return { error: e.message, count: 0 };
+        return { error: e.message, message: '' };
     }
 }
 
@@ -573,8 +593,8 @@ export async function graduateGeneration(generation: number): Promise<{ error: s
 
         if (updateError) throw updateError;
         
-        // Sync roles for updated members
-        await Promise.all(membersToUpdate.map(member => syncDiscordRoles(member.discord_uid)));
+        // Sync roles for all members after the update
+        await syncAllDiscordRoles();
 
         revalidatePath('/dashboard/admin/members');
 
@@ -584,11 +604,11 @@ export async function graduateGeneration(generation: number): Promise<{ error: s
     }
 }
     
-export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGeneration: number): Promise<{ error: string | null, count: number }> {
+export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGeneration: number): Promise<{ error: string | null, message: string }> {
     try {
         await checkAdmin();
         if (!highSchoolFirstYearGeneration || highSchoolFirstYearGeneration <= 0) {
-            return { error: '有効な期数を指定してください。', count: 0 };
+            return { error: '有効な期数を指定してください。', message: '' };
         }
 
         const supabase = await createAdminClient();
@@ -606,6 +626,15 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
         const allStudentGenerations = [...highSchoolGenerations, ...juniorHighSchoolGenerations];
 
+        // Get count before update for better message
+        const { count: totalMembers, error: countError } = await supabase
+            .from('members')
+            .select('*', { count: 'exact', head: true })
+            .is('deleted_at', null);
+
+        if (countError) throw new Error(`メンバー数の取得に失敗: ${countError.message}`);
+
+
         // Update High School Students
         const { error: hsError } = await supabase
             .from('members')
@@ -622,30 +651,20 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
         // Update OB/OG
         const { error: obError } = await supabase
-            .from('members')
+            from('members')
             .update({ status: 2 }) // 2: OB/OG
             .not('generation', 'in', `(${allStudentGenerations.join(',')})`);
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
 
-        // Get all members to re-sync roles
-        const { data: allMembers, error: membersError } = await supabase
-            .from('members')
-            .select('discord_uid')
-            .is('deleted_at', null);
-
-        if (membersError) throw membersError;
-        
-        if (allMembers && allMembers.length > 0) {
-            // Re-sync all members' roles
-            await Promise.all(allMembers.map(member => syncDiscordRoles(member.discord_uid)));
-        }
+        // Re-sync all members' roles
+        await syncAllDiscordRoles();
         
         revalidatePath('/dashboard/admin/members');
 
-        return { error: null, count: allMembers?.length || 0 };
+        return { error: null, message: `全${totalMembers || 0}人のメンバーのステータスを更新し、ロールの同期を開始しました。` };
 
     } catch (e: any) {
         console.error("Failed to update for new academic year:", e);
-        return { error: e.message, count: 0 };
+        return { error: e.message, message: '' };
     }
 }
