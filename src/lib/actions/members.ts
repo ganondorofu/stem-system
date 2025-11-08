@@ -14,8 +14,14 @@ const reSyncSchema = z.object({
     first_name: z.string().min(1, '名は必須です。'),
 });
 
-// Schema for updating own profile (allows changing status to OB/OG)
-const profileSchema = z.object({
+// Schema for updating own profile (allows changing student number)
+const profileUpdateSchema = z.object({
+    student_number: z.string().regex(/^[0-9]*$/, '学籍番号は半角数字で入力してください。').optional().nullable(),
+});
+
+
+// Schema for admin updating profile
+const profileAdminUpdateSchema = z.object({
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
@@ -339,7 +345,7 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
 }
 
 
-export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
+export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema>) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -347,22 +353,16 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
         return { error: 'プロフィールを更新するにはログインする必要があります。' };
     }
 
-    const parsedData = profileSchema.safeParse(values);
+    const parsedData = profileUpdateSchema.safeParse(values);
     if (!parsedData.success) {
         return { error: '無効なデータが提供されました。' };
     }
     
-    const { generation, student_number, status } = parsedData.data;
-
-    await ensureGenerationRoleExists(generation);
+    const { student_number } = parsedData.data;
 
     const { error } = await supabase
         .from('members')
-        .update({
-            generation: generation,
-            student_number: student_number,
-            status: status,
-        })
+        .update({ student_number })
         .eq('supabase_auth_user_id', user.id);
 
     if (error) {
@@ -377,10 +377,11 @@ export async function updateMyProfile(values: z.infer<typeof profileSchema>) {
 
 
     revalidatePath('/dashboard', 'layout');
+    revalidatePath('/dashboard/admin/members');
     return { error: null };
 }
 
-export async function updateMemberAdmin(userId: string, values: z.infer<typeof profileSchema>) {
+export async function updateMemberAdmin(userId: string, values: z.infer<typeof profileAdminUpdateSchema>) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -588,4 +589,5 @@ export async function graduateGeneration(generation: number): Promise<{ error: s
     
 
     
+
 
