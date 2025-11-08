@@ -48,6 +48,15 @@ const registerSchema = z.object({
     path: ['generation'],
 });
 
+async function checkAdmin() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required.');
+
+    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
+    if (!admin?.is_admin) throw new Error('Administrator privileges required.');
+}
+
 function getAcademicYear() {
     const today = new Date();
     const year = today.getFullYear();
@@ -132,8 +141,6 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
-    console.log(`[Discord Bot] Attempting to get display name for discord_uid: ${discordUid}`);
-
     if (!apiUrl || !token || !discordUid) {
         console.error(`[Discord Bot] Cannot get display name. API URL, Token, or Discord UID is missing.`);
         return null;
@@ -154,7 +161,6 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
         }
         
         const data = await response.json();
-        console.log(`[Discord Bot] Fetched display name data for ${discordUid}:`, data);
         return data.name_only || null;
     } catch (error) {
         console.error(`[Discord Bot] Error fetching nickname for ${discordUid}:`, error);
@@ -167,8 +173,6 @@ type MemberNameMap = { [key: string]: string };
 export async function getAllMemberNames(): Promise<MemberNameMap | null> {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
-
-    console.log(`[getAllMemberNames] Attempting to fetch all member names.`);
 
     if (!apiUrl || !token) {
         console.error(`[getAllMemberNames] Aborting: API URL or Token is missing.`);
@@ -200,7 +204,6 @@ export async function getAllMemberNames(): Promise<MemberNameMap | null> {
             return acc;
         }, {});
         
-        console.log(`[getAllMemberNames] Successfully fetched and mapped ${Object.keys(nameMap).length} members.`);
         return nameMap;
     } catch (error) {
         console.error(`[getAllMemberNames] Error fetching member names:`, error);
@@ -515,6 +518,74 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
     }
 }
 
+
+export async function syncAllDiscordRoles(): Promise<{ error: string | null, count: number }> {
+    try {
+        await checkAdmin();
+        const supabase = await createClient();
+
+        const { data: members, error } = await supabase
+            .from('members')
+            .select('discord_uid')
+            .is('deleted_at', null);
+
+        if (error) throw error;
+        if (!members || members.length === 0) {
+            return { error: '同期対象のメンバーが見つかりません。', count: 0 };
+        }
+
+        for (const member of members) {
+            await syncDiscordRoles(member.discord_uid);
+        }
+
+        return { error: null, count: members.length };
+    } catch (e: any) {
+        return { error: e.message, count: 0 };
+    }
+}
+
+export async function graduateGeneration(generation: number): Promise<{ error: string | null, count: number }> {
+     try {
+        await checkAdmin();
+        if (!generation || generation <= 0) {
+            return { error: '有効な期数を指定してください。', count: 0 };
+        }
+        
+        const supabase = await createClient();
+
+        const { data: membersToUpdate, error: selectError } = await supabase
+            .from('members')
+            .select('supabase_auth_user_id, discord_uid')
+            .eq('generation', generation)
+            .neq('status', 2) // Already OB/OG
+            .is('deleted_at', null);
+        
+        if (selectError) throw selectError;
+
+        if (!membersToUpdate || membersToUpdate.length === 0) {
+            return { error: `対象の期生（${generation}期）が見つからないか、既にOB/OGです。`, count: 0 };
+        }
+
+        const { error: updateError } = await supabase
+            .from('members')
+            .update({ status: 2 }) // 2: OB/OG
+            .eq('generation', generation);
+
+        if (updateError) throw updateError;
+        
+        // Sync roles for updated members
+        for (const member of membersToUpdate) {
+            await syncDiscordRoles(member.discord_uid);
+        }
+
+        revalidatePath('/dashboard/admin/members');
+
+        return { error: null, count: membersToUpdate.length };
+    } catch (e: any) {
+        return { error: e.message, count: 0 };
+    }
+}
     
 
     
+
