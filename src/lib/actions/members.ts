@@ -1,7 +1,7 @@
 
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { ensureGenerationRoleExists } from './generations';
@@ -535,9 +535,8 @@ export async function syncAllDiscordRoles(): Promise<{ error: string | null, cou
             return { error: '同期対象のメンバーが見つかりません。', count: 0 };
         }
 
-        for (const member of members) {
-            await syncDiscordRoles(member.discord_uid);
-        }
+        // Run sync operations in parallel
+        await Promise.all(members.map(member => syncDiscordRoles(member.discord_uid)));
 
         return { error: null, count: members.length };
     } catch (e: any) {
@@ -575,9 +574,7 @@ export async function graduateGeneration(generation: number): Promise<{ error: s
         if (updateError) throw updateError;
         
         // Sync roles for updated members
-        for (const member of membersToUpdate) {
-            await syncDiscordRoles(member.discord_uid);
-        }
+        await Promise.all(membersToUpdate.map(member => syncDiscordRoles(member.discord_uid)));
 
         revalidatePath('/dashboard/admin/members');
 
@@ -587,7 +584,68 @@ export async function graduateGeneration(generation: number): Promise<{ error: s
     }
 }
     
+export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGeneration: number): Promise<{ error: string | null, count: number }> {
+    try {
+        await checkAdmin();
+        if (!highSchoolFirstYearGeneration || highSchoolFirstYearGeneration <= 0) {
+            return { error: '有効な期数を指定してください。', count: 0 };
+        }
 
-    
+        const supabase = await createAdminClient();
 
+        const highSchoolGenerations = [
+            highSchoolFirstYearGeneration,      // 1st year
+            highSchoolFirstYearGeneration - 1,  // 2nd year
+            highSchoolFirstYearGeneration - 2   // 3rd year
+        ];
+        const juniorHighSchoolGenerations = [
+            highSchoolFirstYearGeneration + 1,  // 3rd year
+            highSchoolFirstYearGeneration + 2,  // 2nd year
+            highSchoolFirstYearGeneration + 3   // 1st year
+        ];
 
+        const allStudentGenerations = [...highSchoolGenerations, ...juniorHighSchoolGenerations];
+
+        // Update High School Students
+        const { error: hsError } = await supabase
+            .from('members')
+            .update({ status: 1 }) // 1: High School
+            .in('generation', highSchoolGenerations);
+        if (hsError) throw new Error(`高校生の更新に失敗: ${hsError.message}`);
+
+        // Update Junior High School Students
+        const { error: jhsError } = await supabase
+            .from('members')
+            .update({ status: 0 }) // 0: Junior High
+            .in('generation', juniorHighSchoolGenerations);
+        if (jhsError) throw new Error(`中学生の更新に失敗: ${jhsError.message}`);
+
+        // Update OB/OG
+        const { error: obError } = await supabase
+            .from('members')
+            .update({ status: 2 }) // 2: OB/OG
+            .not('generation', 'in', `(${allStudentGenerations.join(',')})`);
+        if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
+
+        // Get all members to re-sync roles
+        const { data: allMembers, error: membersError } = await supabase
+            .from('members')
+            .select('discord_uid')
+            .is('deleted_at', null);
+
+        if (membersError) throw membersError;
+        
+        if (allMembers && allMembers.length > 0) {
+            // Re-sync all members' roles
+            await Promise.all(allMembers.map(member => syncDiscordRoles(member.discord_uid)));
+        }
+        
+        revalidatePath('/dashboard/admin/members');
+
+        return { error: null, count: allMembers?.length || 0 };
+
+    } catch (e: any) {
+        console.error("Failed to update for new academic year:", e);
+        return { error: e.message, count: 0 };
+    }
+}
