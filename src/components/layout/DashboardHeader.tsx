@@ -44,7 +44,7 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
   }
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-30 md:hidden">
+    <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 md:hidden">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0">
@@ -52,7 +52,7 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
             <span className="sr-only">ナビゲーションメニューを開閉</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col">
+        <SheetContent side="left" className="flex flex-col z-50">
           <nav className="grid gap-2 text-lg font-medium">
             <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold mb-4">
               <Club className="h-6 w-6 text-primary" />
