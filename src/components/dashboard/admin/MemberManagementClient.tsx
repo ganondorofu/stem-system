@@ -58,13 +58,17 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type MemberNameMap = { [key: string]: string };
 
 const profileSchema = z.object({
+    last_name: z.string().min(1, '姓は必須です。'),
+    first_name: z.string().min(1, '名は必須です。'),
     status: z.coerce.number().int().min(0).max(2),
     student_number: z.string().optional().nullable(),
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
+    team_ids: z.array(z.string()).optional(),
 });
 
 
@@ -192,31 +196,31 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
 
 function EditProfileDialog({
   member,
+  allTeams,
   isOpen,
   onOpenChange,
   onProfileUpdate,
 }: {
   member: MemberWithTeamsAndRelations | null;
+  allTeams: Team[];
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProfileUpdate: (updatedMember: Partial<MemberWithTeamsAndRelations>) => void;
+  onProfileUpdate: (updatedMember: Partial<MemberWithTeamsAndRelations>, updatedTeams: Team[]) => void;
 }) {
     const { toast } = useToast();
     const form = useForm<z.infer<typeof profileSchema>>({
         resolver: zodResolver(profileSchema),
-        defaultValues: {
-            status: member?.status ?? 1,
-            student_number: member?.student_number,
-            generation: member?.generation,
-        },
     });
 
     React.useEffect(() => {
         if (member) {
             form.reset({
+                last_name: member.raw_user_meta_data.last_name || '',
+                first_name: member.raw_user_meta_data.first_name || '',
                 status: member.status,
                 student_number: member.student_number,
                 generation: member.generation,
+                team_ids: member.teams.map(t => t.id),
             });
         }
     }, [member, form]);
@@ -240,7 +244,8 @@ function EditProfileDialog({
                 title: '成功',
                 description: 'メンバー情報を更新しました。',
             });
-            onProfileUpdate({ ...member, ...values });
+            const updatedTeams = allTeams.filter(t => values.team_ids?.includes(t.id));
+            onProfileUpdate({ ...member, ...values }, updatedTeams);
             onOpenChange(false);
         }
     }
@@ -249,7 +254,7 @@ function EditProfileDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>プロフィールを編集</DialogTitle>
                     <DialogDescription>
@@ -258,6 +263,35 @@ function EditProfileDialog({
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                         <div className="grid sm:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="last_name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>姓</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="例: 山田" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="first_name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>名</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="例: 太郎" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
                         <FormField
                             control={form.control}
                             name="status"
@@ -313,11 +347,61 @@ function EditProfileDialog({
                                 </FormItem>
                             )}
                         />
+                         <FormField
+                            control={form.control}
+                            name="team_ids"
+                            render={() => (
+                            <FormItem>
+                                <div className="mb-4">
+                                    <FormLabel className="text-base">所属班</FormLabel>
+                                </div>
+                                <ScrollArea className="h-40 w-full rounded-md border">
+                                <div className="p-4 space-y-4">
+                                {allTeams.map((team) => (
+                                <FormField
+                                    key={team.id}
+                                    control={form.control}
+                                    name="team_ids"
+                                    render={({ field }) => {
+                                    return (
+                                        <FormItem
+                                        key={team.id}
+                                        className="flex flex-row items-start space-x-3 space-y-0"
+                                        >
+                                        <FormControl>
+                                            <Checkbox
+                                            checked={field.value?.includes(team.id)}
+                                            onCheckedChange={(checked) => {
+                                                return checked
+                                                ? field.onChange([...(field.value || []), team.id])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                        (value) => value !== team.id
+                                                    )
+                                                    )
+                                            }}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">
+                                            {team.name}
+                                        </FormLabel>
+                                        </FormItem>
+                                    )
+                                    }}
+                                />
+                                ))}
+                                </div>
+                                </ScrollArea>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={form.formState.isSubmitting}>キャンセル</Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? <><Loader2 className="animate-spin" /> 保存中...</> : '保存'}
+                                {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...</> : '保存'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -339,10 +423,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [alertAction, setAlertAction] = React.useState<"delete" | "toggleAdmin">("delete")
   const { toast } = useToast()
   
-  const [isTeamDialogOpen, setIsTeamDialogOpen] = React.useState(false)
-  const teamForm = useForm<{ team_ids: string[] }>()
-  const [isTeamSubmitting, setIsTeamSubmitting] = React.useState(false);
-
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = React.useState(false)
   const [showRealName, setShowRealName] = React.useState(false);
@@ -394,12 +474,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     setSelectedMember(null)
     setIsActionSubmitting(false);
   }
-  
-  const handleTeamDialog = (member: MemberWithTeamsAndRelations) => {
-    setSelectedMember(member)
-    teamForm.reset({ team_ids: member.teams.map(t => t.id) })
-    setIsTeamDialogOpen(true)
-  }
 
   const handleProfileDialog = (member: MemberWithTeamsAndRelations) => {
     setSelectedMember(member)
@@ -412,34 +486,24 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   };
 
 
-  const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>) => {
-    setMembers(members.map(m => m.supabase_auth_user_id === updatedMember.supabase_auth_user_id ? {...m, ...updatedMember} : m));
-  }
-
-
-  const handleTeamUpdate = async (values: {team_ids: string[]}) => {
-    if (!selectedMember) return;
-    setIsTeamSubmitting(true);
-
-    const result = await updateMemberTeams(selectedMember.supabase_auth_user_id, values.team_ids);
-    if (result.error) {
-      toast({ title: 'エラー', description: result.error, variant: 'destructive' });
-    } else {
-      toast({ title: '成功', description: '所属班を更新しました。' });
-      // Update local state
-      setMembers(members.map(m => {
-        if (m.supabase_auth_user_id === selectedMember.supabase_auth_user_id) {
-          return {
-            ...m,
-            teams: allTeams.filter(t => values.team_ids.includes(t.id))
-          }
+  const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>, updatedTeams: Team[]) => {
+    setMembers(members.map(m => {
+        if (m.supabase_auth_user_id === updatedMember.supabase_auth_user_id) {
+            // Update raw_user_meta_data for name changes
+            const newRawUserData = { ...m.raw_user_meta_data };
+            if (updatedMember.last_name) newRawUserData.last_name = updatedMember.last_name;
+            if (updatedMember.first_name) newRawUserData.first_name = updatedMember.first_name;
+            
+            return {
+                ...m,
+                ...updatedMember,
+                teams: updatedTeams,
+                raw_user_meta_data: newRawUserData
+            };
         }
         return m;
-      }));
-      setIsTeamDialogOpen(false);
-    }
-    setIsTeamSubmitting(false);
-  }
+    }));
+  };
 
   const DisplayNameCell = ({ row }: { row: any }) => {
     const member = row.original as MemberWithTeamsAndRelations;
@@ -542,9 +606,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEditProfileDialog(member)}>
                   プロフィールを編集
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTeamDialog(member)}>
-                  班を編集
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   setSelectedMember(member)
@@ -720,59 +781,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>所属班の編集</DialogTitle>
-            <DialogDescription>{selectedMember?.raw_user_meta_data.name}さんの所属する班を選択してください。</DialogDescription>
-          </DialogHeader>
-          <Form {...teamForm}>
-            <form onSubmit={teamForm.handleSubmit(handleTeamUpdate)}>
-              <FormField
-                control={teamForm.control}
-                name="team_ids"
-                render={() => (
-                  <FormItem className="space-y-4 py-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto p-1">
-                      {allTeams.map(team => (
-                        <FormField
-                          key={team.id}
-                          control={teamForm.control}
-                          name="team_ids"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 hover:bg-accent hover:text-accent-foreground transition-colors">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(team.id)}
-                                  onCheckedChange={checked => {
-                                    return checked
-                                      ? field.onChange([...(field.value || []), team.id])
-                                      : field.onChange(field.value?.filter(id => id !== team.id))
-                                  }}
-                                  id={`team-${team.id}`}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal w-full cursor-pointer" htmlFor={`team-${team.id}`}>
-                                {team.name}
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)} disabled={isTeamSubmitting}>キャンセル</Button>
-                <Button type="submit" disabled={isTeamSubmitting}>
-                  {isTeamSubmitting ? <><Loader2 className="animate-spin" /> 保存中...</> : '保存'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
       {selectedMember && (
           <>
             <ProfileDialog 
@@ -782,6 +790,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             />
             <EditProfileDialog
               member={selectedMember}
+              allTeams={allTeams}
               isOpen={isEditProfileDialogOpen}
               onOpenChange={setIsEditProfileDialogOpen}
               onProfileUpdate={handleProfileUpdate}
@@ -791,5 +800,3 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
-
-    
