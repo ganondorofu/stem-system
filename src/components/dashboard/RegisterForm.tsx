@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info, Loader2 } from 'lucide-react';
 import type { Team } from '@/lib/types';
 import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
 
 const studentNumberRegex = /^[0-9]+$/;
 
@@ -245,7 +246,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                 />
                             )}
 
-                             <FormField
+                            <FormField
                                 control={form.control}
                                 name="team_ids"
                                 render={() => (
@@ -253,10 +254,11 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                     <div className="mb-4">
                                         <FormLabel className="text-base">所属する班</FormLabel>
                                         <FormDescription>
-                                            参加したい班をすべて選択してください。（任意）
+                                            参加する班をすべて選択してください。（任意）
                                         </FormDescription>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <ScrollArea className="h-40 w-full rounded-md border">
+                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {teams.map((team) => (
                                     <FormField
                                         key={team.id}
@@ -291,6 +293,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                     />
                                     ))}
                                     </div>
+                                    </ScrollArea>
                                     <FormMessage />
                                 </FormItem>
                                 )}

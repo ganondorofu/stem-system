@@ -22,9 +22,12 @@ const profileUpdateSchema = z.object({
 
 // Schema for admin updating profile
 const profileAdminUpdateSchema = z.object({
+    last_name: z.string().min(1, '姓は必須です。'),
+    first_name: z.string().min(1, '名は必須です。'),
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
+    team_ids: z.array(z.string()).optional(),
 });
 
 // Schema for initial registration
@@ -221,6 +224,7 @@ export async function getAllMemberNames(): Promise<MemberNameMap | null> {
 
 export async function registerNewMember(values: z.infer<typeof registerSchema>) {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -261,7 +265,6 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: '期を計算できませんでした。入力内容を確認してください。' };
     }
 
-    // Concatenate last_name and first_name, removing any spaces
     const fullName = (last_name + first_name).replace(/\s/g, '');
     
     await ensureGenerationRoleExists(finalGeneration);
@@ -279,6 +282,16 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     if (memberInsertError) {
         console.error('Error creating member profile:', memberInsertError);
         return { error: '部員情報の作成に失敗しました。' };
+    }
+
+    // Update user_metadata with name
+    const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        { user_metadata: { ...user.user_metadata, last_name, first_name, name: fullName } }
+    );
+     if (userUpdateError) {
+        console.error('Error updating user metadata:', userUpdateError);
+        // We don't return an error here, as the primary registration was successful
     }
     
     if (team_ids && team_ids.length > 0) {
@@ -303,6 +316,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
 export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -334,6 +348,16 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
 
     if (!memberProfile) {
         return { error: 'メンバー情報が見つかりません。新規登録が必要です。' };
+    }
+    
+    // Update user_metadata with name
+    const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        { user_metadata: { ...user.user_metadata, last_name, first_name, name: fullName } }
+    );
+     if (userUpdateError) {
+        console.error('Error updating user metadata during resync:', userUpdateError);
+        return { error: 'ユーザー情報の更新に失敗しました。' };
     }
 
     // Re-sync Discord nickname and roles
@@ -382,40 +406,68 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
 }
 
 export async function updateMemberAdmin(userId: string, values: z.infer<typeof profileAdminUpdateSchema>) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        await checkAdmin();
+        const supabase = await createClient();
+        const supabaseAdmin = await createAdminClient();
 
-    if (!user) {
-        return { error: '認証が必要です。' };
+        const parsedData = profileAdminUpdateSchema.safeParse(values);
+        if (!parsedData.success) {
+            console.error("Invalid admin update data:", parsedData.error.flatten());
+            const firstError = parsedData.error.flatten().fieldErrors;
+            const errorMessage = Object.values(firstError)[0]?.[0] || '無効なデータが提供されました。';
+            return { error: errorMessage };
+        }
+
+        const { last_name, first_name, generation, student_number, status, team_ids } = parsedData.data;
+
+        // 1. Update user metadata (name)
+        const fullName = (last_name + first_name).replace(/\s/g, '');
+        const { data: userToUpdate, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+        if (getUserError) throw new Error(`ユーザー情報の取得に失敗: ${getUserError.message}`);
+
+        const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            { user_metadata: { ...userToUpdate.user.user_metadata, last_name, first_name, name: fullName } }
+        );
+        if (userUpdateError) throw new Error(`ユーザーメタデータの更新に失敗: ${userUpdateError.message}`);
+
+        // 2. Update member table (generation, status, student_number)
+        await ensureGenerationRoleExists(generation);
+        const { error: memberUpdateError } = await supabase
+            .from('members')
+            .update({ generation, student_number, status })
+            .eq('supabase_auth_user_id', userId);
+        if (memberUpdateError) throw new Error(`メンバーテーブルの更新に失敗: ${memberUpdateError.message}`);
+        
+        // 3. Update team relations
+        const { error: deleteTeamsError } = await supabase
+            .from('member_team_relations')
+            .delete()
+            .eq('member_id', userId);
+        if (deleteTeamsError) throw new Error(`所属班の削除に失敗: ${deleteTeamsError.message}`);
+
+        if (team_ids && team_ids.length > 0) {
+            const newRelations = team_ids.map(team_id => ({
+                member_id: userId,
+                team_id: team_id,
+            }));
+            const { error: insertTeamsError } = await supabase.from('member_team_relations').insert(newRelations);
+            if (insertTeamsError) throw new Error(`所属班の更新に失敗: ${insertTeamsError.message}`);
+        }
+
+        // 4. Sync with Discord
+        await syncDiscordNickname(userToUpdate.user.user_metadata.provider_id, fullName);
+        await syncDiscordRoles(userToUpdate.user.user_metadata.provider_id);
+
+        revalidatePath('/dashboard/admin/members');
+        return { error: null };
+    } catch (e: any) {
+        console.error('Error updating member by admin:', e);
+        return { error: e.message };
     }
-
-    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
-    if (!admin?.is_admin) {
-        return { error: '管理者権限が必要です。' };
-    }
-    
-    const { generation, student_number, status } = values;
-
-    await ensureGenerationRoleExists(generation);
-
-    const { error } = await supabase
-        .from('members')
-        .update(values)
-        .eq('supabase_auth_user_id', userId);
-
-    if (error) {
-        console.error('Error updating member by admin:', error);
-        return { error: 'メンバーの更新に失敗しました。' };
-    }
-    
-    const { data: memberData } = await supabase.from('members').select('discord_uid').eq('supabase_auth_user_id', userId).single();
-    if (memberData) {
-        await syncDiscordRoles(memberData.discord_uid);
-    }
-
-    revalidatePath('/dashboard/admin/members');
-    return { error: null };
 }
+
 
 export async function toggleAdminStatus(userId: string, currentStatus: boolean) {
     const supabase = await createClient();
