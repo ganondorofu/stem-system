@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,7 +13,9 @@ import {
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
+  type FilterFn,
 } from "@tanstack/react-table"
+import { rankItem } from '@tanstack/match-sorter-utils'
 import {
   Table,
   TableBody,
@@ -417,6 +420,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [namesLoaded, setNamesLoaded] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState('')
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
   const [isActionSubmitting, setIsActionSubmitting] = React.useState(false);
   const [selectedMember, setSelectedMember] = React.useState<MemberWithTeamsAndRelations | null>(null)
@@ -630,6 +634,30 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     },
   ]
 
+  const globalFilterFn: FilterFn<MemberWithTeamsAndRelations> = (row, columnId, filterValue) => {
+    const searchTerm = filterValue.toLowerCase();
+    const member = row.original;
+    
+    const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
+    const discordUid = member.discord_uid.toLowerCase();
+    const generation = String(member.generation);
+    const studentNumber = member.student_number || '';
+    const email = member.email || '';
+    
+    let realName = '';
+    if (showRealName && namesLoaded) {
+      realName = (memberNames[member.discord_uid] || '').toLowerCase();
+    }
+
+    return discordUsername.includes(searchTerm) ||
+           discordUid.includes(searchTerm) ||
+           (showRealName && realName.includes(searchTerm)) ||
+           generation.includes(searchTerm) ||
+           studentNumber.includes(searchTerm) ||
+           email.includes(searchTerm);
+  };
+
+
   const table = useReactTable({
     data: members,
     columns,
@@ -639,39 +667,14 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: globalFilterFn,
     state: {
       sorting,
       columnFilters,
+      globalFilter,
     },
   })
-  
-  const globalFilter = table.getState().globalFilter;
-
-  const handleGlobalFilterChange = (value: string) => {
-    table.setGlobalFilter(value);
-  }
-  
-  React.useEffect(() => {
-    const filterValue = globalFilter?.toLowerCase() || "";
-    table.setGlobalFilter(filterValue);
-    const filteredData = initialMembers.filter(member => {
-      const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
-      const discordUid = member.discord_uid.toLowerCase();
-      const realName = showRealName && namesLoaded ? (memberNames[member.discord_uid] || '').toLowerCase() : '';
-      const generation = String(member.generation);
-      const studentNumber = member.student_number || '';
-      const email = member.email || '';
-
-      return discordUsername.includes(filterValue) ||
-             discordUid.includes(filterValue) ||
-             (showRealName && realName.includes(filterValue)) ||
-             generation.includes(filterValue) ||
-             studentNumber.includes(filterValue) ||
-             email.includes(filterValue);
-    });
-    setMembers(filteredData);
-  }, [globalFilter, showRealName, namesLoaded, memberNames, initialMembers]);
-
 
   return (
     <div className="w-full">
@@ -679,7 +682,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         <Input
           placeholder="名前, ID, 学籍番号などで絞り込み..."
           value={globalFilter ?? ""}
-          onChange={(event) => handleGlobalFilterChange(event.target.value)}
+          onChange={(event) => setGlobalFilter(event.target.value)}
           className="max-w-sm"
         />
         <div className="flex items-center space-x-2">
@@ -800,3 +803,5 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     </div>
   )
 }
+
+    
