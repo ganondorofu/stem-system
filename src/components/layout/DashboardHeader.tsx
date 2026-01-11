@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu, Club, Home, Users, Shield, LogOut, User, Settings, Cog } from 'lucide-react';
+import { Menu, Club, Home, Users, Shield, LogOut, User, Settings, Cog, ExternalLink, Clock } from 'lucide-react';
 import type { FullUserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -22,13 +22,26 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
   const pathname = usePathname();
   const supabase = createClient();
   const [displayName, setDisplayName] = useState(user?.raw_user_meta_data?.name);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     // Client-side fetch might be needed if name isn't immediately available
     if (user && !displayName) {
         // Potentially fetch display name from a client-side action if needed
     }
-  }, [user, displayName]);
+    
+    // Get user email from Supabase auth
+    const getUserEmail = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.email) {
+        setUserEmail(authUser.email);
+      }
+    };
+    
+    if (user) {
+      getUserEmail();
+    }
+  }, [user, displayName, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -74,18 +87,56 @@ export default function DashboardHeader({ user }: { user: FullUserProfile | null
                 </Link>
               );
             })}
+            
+            {/* 外部システムリンク */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 mx-[-0.65rem] px-3">外部システム</p>
+              <Link
+                href="https://stem-kintai.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <Clock className="h-5 w-5" />
+                勤怠管理システム
+                <ExternalLink className="h-4 w-4 ml-auto" />
+              </Link>
+              <Link
+                href="https://member.stemask.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <User className="h-5 w-5" />
+                部活動システム
+                <ExternalLink className="h-4 w-4 ml-auto" />
+              </Link>
+            </div>
           </nav>
           <div className="mt-auto">
              {user ? (
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.avatar_url ?? undefined} alt={displayName} />
-                      <AvatarFallback><User /></AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col overflow-hidden">
-                      <p className="font-semibold text-sm leading-none truncate">{displayName}</p>
-                      <p className="text-xs text-muted-foreground">{isAdmin ? '管理者' : 'メンバー'}</p>
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarImage src={user.avatar_url ?? undefined} alt={displayName} />
+                        <AvatarFallback><User /></AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col overflow-hidden min-w-0 flex-1">
+                        <p className="font-semibold text-sm leading-none truncate" title={displayName}>
+                          {displayName}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{isAdmin ? '管理者' : 'メンバー'}</p>
+                    </div>
                   </div>
+                  {/* ユーザーのメールアドレス表示 */}
+                  {userEmail && (
+                    <div className="mb-3 mx-[-0.65rem] px-3 py-2 bg-muted/50 rounded-xl">
+                      <p className="text-xs text-muted-foreground mb-1">メールアドレス</p>
+                      <p className="text-xs font-mono break-words leading-relaxed">
+                        {userEmail}
+                      </p>
+                    </div>
+                  )}
                 </div>
              ) : (
                 <div className="flex items-center gap-3 mb-4">
