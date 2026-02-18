@@ -10,12 +10,12 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type Column,
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
   type FilterFn,
 } from "@tanstack/react-table"
-import { rankItem } from '@tanstack/match-sorter-utils'
 import {
   Table,
   TableBody,
@@ -34,11 +34,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2 } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2, PlusCircle, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus, updateMemberTeams, getMemberDisplayName, updateMemberAdmin, getAllMemberNames } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberAdmin, getMemberDisplayName, getAllMemberNames } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -59,9 +60,24 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command"
+import { cn } from "@/lib/utils"
+
 
 type MemberNameMap = { [key: string]: string };
 
@@ -414,6 +430,211 @@ function EditProfileDialog({
     );
 }
 
+interface DataTableFacetedFilterProps<TData, TValue> {
+  column?: Column<TData, TValue>
+  title?: string
+  options: {
+    label: string
+    value: string
+  }[]
+}
+
+function DataTableFacetedFilter<TData, TValue>({
+  column,
+  title,
+  options,
+}: DataTableFacetedFilterProps<TData, TValue>) {
+  const facets = column?.getFacetedUniqueValues()
+  const selectedValues = new Set(column?.getFilterValue() as string[])
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 border-dashed">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {title}
+          {selectedValues?.size > 0 && (
+            <>
+              <Separator orientation="vertical" className="mx-2 h-4" />
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1 font-normal lg:hidden"
+              >
+                {selectedValues.size}
+              </Badge>
+              <div className="hidden space-x-1 lg:flex">
+                {selectedValues.size > 2 ? (
+                  <Badge
+                    variant="secondary"
+                    className="rounded-sm px-1 font-normal"
+                  >
+                    {selectedValues.size}件選択中
+                  </Badge>
+                ) : (
+                  options
+                    .filter((option) => selectedValues.has(option.value))
+                    .map((option) => (
+                      <Badge
+                        variant="secondary"
+                        key={option.value}
+                        className="rounded-sm px-1 font-normal"
+                      >
+                        {option.label}
+                      </Badge>
+                    ))
+                )}
+              </div>
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={title} />
+          <CommandList>
+            <CommandEmpty>見つかりません。</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => {
+                const isSelected = selectedValues.has(option.value)
+                return (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => {
+                      if (isSelected) {
+                        selectedValues.delete(option.value)
+                      } else {
+                        selectedValues.add(option.value)
+                      }
+                      const filterValues = Array.from(selectedValues)
+                      column?.setFilterValue(
+                        filterValues.length ? filterValues : undefined
+                      )
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "opacity-50 [&_svg]:invisible"
+                      )}
+                    >
+                      <Check className={cn("h-4 w-4")} />
+                    </div>
+                    <span>{option.label}</span>
+                    {facets?.get(option.value) && (
+                      <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
+                        {facets.get(option.value)}
+                      </span>
+                    )}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+            {selectedValues.size > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => column?.setFilterValue(undefined)}
+                    className="justify-center text-center"
+                  >
+                    クリア
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function DataTableToolbar({ table, allTeams, showRealName, handleShowRealNameChange, namesLoaded }: { 
+    table: ReturnType<typeof useReactTable<MemberWithTeamsAndRelations>>,
+    allTeams: Team[],
+    showRealName: boolean,
+    handleShowRealNameChange: (checked: boolean) => void,
+    namesLoaded: boolean,
+}) {
+    const isFiltered = table.getState().columnFilters.length > 0
+    const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
+    const statusOptions = Object.entries(statusMap).map(([value, label]) => ({ label, value }))
+    const teamOptions = allTeams.map(team => ({ label: team.name, value: team.id }))
+    const adminOptions = [{label: '管理者', value: 'true'}, {label: 'メンバー', value: 'false'}]
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div className="flex flex-1 items-center space-x-2">
+                    <Input
+                      placeholder="名前, ID, 学籍番号..."
+                      value={(table.getState().globalFilter as string) ?? ""}
+                      onChange={(event) => table.setGlobalFilter(event.target.value)}
+                      className="h-8 w-[150px] lg:w-[250px]"
+                    />
+                    <Input
+                        placeholder="期で絞り込み..."
+                        value={(table.getColumn('generation')?.getFilterValue() as string) ?? ''}
+                        onChange={(event) =>
+                            table.getColumn('generation')?.setFilterValue(event.target.value)
+                        }
+                        className="h-8 w-[130px] hidden md:block"
+                    />
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="show-real-name" 
+                      checked={showRealName}
+                      onCheckedChange={(checked) => handleShowRealNameChange(!!checked)}
+                      disabled={!namesLoaded && showRealName}
+                    />
+                    <label
+                      htmlFor="show-real-name"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      本名を表示する
+                    </label>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+                 {table.getColumn("status") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("status")}
+                        title="ステータス"
+                        options={statusOptions}
+                    />
+                 )}
+                 {table.getColumn("teams") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("teams")}
+                        title="所属班"
+                        options={teamOptions}
+                    />
+                 )}
+                 {table.getColumn("is_admin") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("is_admin")}
+                        title="権限"
+                        options={adminOptions}
+                    />
+                 )}
+                {isFiltered && (
+                    <Button
+                        variant="ghost"
+                        onClick={() => table.resetColumnFilters()}
+                        className="h-8 px-2 lg:px-3"
+                    >
+                        リセット
+                        <X className="ml-2 h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+        </div>
+    )
+}
+
 export function MemberManagementClient({ initialMembers, allTeams }: { initialMembers: MemberWithTeamsAndRelations[], allTeams: Team[] }) {
   const [members, setMembers] = React.useState(initialMembers)
   const [memberNames, setMemberNames] = React.useState<MemberNameMap>({});
@@ -447,7 +668,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           description: "本名リストの取得に失敗しました。後でもう一度お試しください。",
           variant: "destructive",
         });
-        setShowRealName(false); // エラー時はチェックを外す
+        setShowRealName(false);
       }
     }
   };
@@ -493,7 +714,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>, updatedTeams: Team[]) => {
     setMembers(members.map(m => {
         if (m.supabase_auth_user_id === updatedMember.supabase_auth_user_id) {
-            // Update raw_user_meta_data for name changes
             const newRawUserData = { ...m.raw_user_meta_data };
             if (updatedMember.last_name) newRawUserData.last_name = updatedMember.last_name;
             if (updatedMember.first_name) newRawUserData.first_name = updatedMember.first_name;
@@ -529,7 +749,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
             displayName = '名前不明';
             subText = `@${discordUsername}`;
         } else {
-            // ローディングスケルトン
             return (
                  <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-full" />
@@ -574,21 +793,45 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         </div>
       ),
       cell: ({ row }) => <div className="text-center">{row.original.generation}期</div>,
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)))
+      },
     },
     {
         accessorKey: "student_number",
         header: "学籍番号",
-        cell: ({ row }) => <div className="text-left">{row.original.student_number}</div>,
+        cell: ({ row }) => <div className="text-left">{row.original.student_number || '-'}</div>,
+    },
+     {
+      accessorKey: "teams",
+      header: "所属班",
+      cell: ({ row }) => {
+        const teams = row.original.teams
+        if (!teams || teams.length === 0) return <span className="text-muted-foreground">未所属</span>
+        return <div className="flex flex-wrap gap-1">{teams.map(team => <Badge key={team.id} variant="secondary">{team.name}</Badge>)}</div>
+      },
+      filterFn: (row, id, value) => {
+        if (!value || value.length === 0) return true
+        const teamIds = row.original.teams.map(t => t.id)
+        return value.some((v: string) => teamIds.includes(v))
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "status",
       header: "ステータス",
       cell: ({ row }) => <div className="text-left">{statusMap[row.original.status as keyof typeof statusMap] || "不明"}</div>,
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)))
+      },
     },
     {
       accessorKey: "is_admin",
       header: "権限",
       cell: ({ row }) => row.original.is_admin ? <Badge variant="destructive">管理者</Badge> : <Badge variant="secondary">メンバー</Badge>,
+       filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)))
+      },
     },
     {
       id: "actions",
@@ -640,7 +883,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     
     const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
     const discordUid = member.discord_uid.toLowerCase();
-    const generation = String(member.generation);
     const studentNumber = member.student_number || '';
     const email = member.email || '';
     
@@ -652,7 +894,6 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     return discordUsername.includes(searchTerm) ||
            discordUid.includes(searchTerm) ||
            (showRealName && realName.includes(searchTerm)) ||
-           generation.includes(searchTerm) ||
            studentNumber.includes(searchTerm) ||
            email.includes(searchTerm);
   };
@@ -663,12 +904,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: globalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: globalFilterFn,
     state: {
       sorting,
       columnFilters,
@@ -678,26 +919,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
-        <Input
-          placeholder="名前, ID, 学籍番号などで絞り込み..."
-          value={globalFilter ?? ""}
-          onChange={(event) => setGlobalFilter(event.target.value)}
-          className="max-w-sm"
-        />
-        <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="show-real-name" 
-              checked={showRealName}
-              onCheckedChange={(checked) => handleShowRealNameChange(!!checked)}
-            />
-            <label
-              htmlFor="show-real-name"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              本名を表示する
-            </label>
-        </div>
+      <div className="py-4">
+        <DataTableToolbar table={table} allTeams={allTeams} showRealName={showRealName} handleShowRealNameChange={handleShowRealNameChange} namesLoaded={namesLoaded} />
       </div>
       <div className="rounded-md border">
         <Table>
