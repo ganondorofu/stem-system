@@ -5,6 +5,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { ensureGenerationRoleExists } from './generations';
+import { checkAdmin } from '@/lib/auth';
 
 const studentNumberRegex = /^[0-9]+$/;
 
@@ -56,15 +57,6 @@ const registerSchema = z.object({
     message: '期は必須です。',
     path: ['generation'],
 });
-
-async function checkAdmin() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required.');
-
-    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
-    if (!admin?.is_admin) throw new Error('Administrator privileges required.');
-}
 
 function getAcademicYear() {
     const today = new Date();
@@ -683,15 +675,15 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
             const { data: { users: allUsers } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
             const userMap = new Map((allUsers ?? []).map(u => [u.id, u]));
 
-            for (const member of obMembers) {
+            await Promise.all(obMembers.map(async (member) => {
                 const user = userMap.get(member.supabase_auth_user_id);
-                if (!user || !member.discord_uid) continue;
+                if (!user || !member.discord_uid) return;
                 const fullName = (user.user_metadata?.name as string | undefined)
                     || ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
                 if (fullName) {
                     await syncDiscordNickname(member.discord_uid, fullName);
                 }
-            }
+            }));
         }
 
         revalidatePath('/dashboard/admin/members');

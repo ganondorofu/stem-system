@@ -3,46 +3,14 @@ import { TeamManagementClient } from '@/components/dashboard/admin/TeamManagemen
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { User } from '@supabase/supabase-js';
 import type { EnrichedMember } from '@/lib/types';
+import { Suspense } from 'react';
+import Loading from './loading';
 
-
-async function getDiscordName(discordUid: string): Promise<string | null> {
-    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
-    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
-
-    console.log(`[getDiscordName] Attempting to fetch name for discord_uid: ${discordUid}`);
-
-    if (!apiUrl || !token || !discordUid) {
-        console.error(`[getDiscordName] Aborting: API URL, Token, or Discord UID is missing.`);
-        return null;
-    }
-
-    try {
-        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            },
-            cache: 'no-store',
-        });
-        
-        const responseText = await response.text();
-        console.log(`[getDiscordName] Response for ${discordUid} - Status: ${response.status}, Body: ${responseText}`);
-
-        if (!response.ok) {
-            return null;
-        }
-        
-        const data = JSON.parse(responseText);
-        return data.name_only || null;
-    } catch (error) {
-        console.error(`[getDiscordName] Error fetching nickname for ${discordUid}:`, error);
-        return null;
-    }
-}
 
 async function getTeamsData() {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
-    
+
     const teamsPromise = supabase.from('teams').select('*').order('name');
     const membersPromise = supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null);
     const relationsPromise = supabase.from('member_team_relations').select('*');
@@ -69,17 +37,16 @@ async function getTeamsData() {
        else users = usersData;
     }
 
-    const enrichedMembers: EnrichedMember[] = await Promise.all(members.map(async (member) => {
+    const enrichedMembers: EnrichedMember[] = members.map((member) => {
         const user = users.find(u => u.id === member.supabase_auth_user_id);
-        const discordName = await getDiscordName(member.discord_uid);
-        const displayName = discordName || user?.user_metadata.name || '名前不明';
-        
+        const displayName = user?.user_metadata?.name || '名前不明';
+
         return {
             ...member,
             displayName,
-            avatar_url: user?.user_metadata.avatar_url || null,
-        }
-    }));
+            avatar_url: user?.user_metadata?.avatar_url || null,
+        };
+    });
 
     return {
         teams: teamsRes.data || [],
@@ -89,9 +56,12 @@ async function getTeamsData() {
     };
 }
 
-export default async function TeamManagementPage() {
+async function TeamsData() {
     const data = await getTeamsData();
-    
+    return <TeamManagementClient {...data} />;
+}
+
+export default async function TeamManagementPage() {
     return (
         <Card>
             <CardHeader>
@@ -99,10 +69,10 @@ export default async function TeamManagementPage() {
                 <CardDescription>班の作成と管理、メンバーの割り当て、班長の指名を行います。</CardDescription>
             </CardHeader>
             <CardContent>
-                <TeamManagementClient {...data} />
+                <Suspense fallback={<Loading />}>
+                    <TeamsData />
+                </Suspense>
             </CardContent>
         </Card>
     );
 }
-
-    

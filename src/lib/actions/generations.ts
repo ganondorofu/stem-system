@@ -4,15 +4,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { GenerationRole } from '../types';
-
-async function checkAdmin() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required.');
-
-    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
-    if (!admin?.is_admin) throw new Error('Administrator privileges required.');
-}
+import { checkAdmin } from '@/lib/auth';
 
 async function callCreateGenerationApi(generation: number): Promise<GenerationRole | null> {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;

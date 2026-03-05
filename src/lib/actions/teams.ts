@@ -5,21 +5,13 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { Team } from '../types';
+import { checkAdmin } from '@/lib/auth';
 
 const teamSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1, '班の名前は必須です。'),
   discord_role_id: z.string().min(1, 'DiscordロールIDは必須です。'),
 });
-
-async function checkAdmin() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('認証が必要です。');
-
-    const { data: admin } = await supabase.from('members').select('is_admin').eq('supabase_auth_user_id', user.id).single();
-    if (!admin?.is_admin) throw new Error('管理者権限が必要です。');
-}
 
 async function syncDiscordRoles(discordUid: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
