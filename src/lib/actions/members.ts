@@ -670,10 +670,33 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
         // Re-sync all members' roles
         await syncAllDiscordRoles();
-        
+
+        // Sync nicknames for all OB members (学籍番号 → 第n期卒業生)
+        const { data: obMembers } = await supabase
+            .from('members')
+            .select('supabase_auth_user_id, discord_uid')
+            .eq('status', 2)
+            .is('deleted_at', null)
+            .not('discord_uid', 'is', null);
+
+        if (obMembers && obMembers.length > 0) {
+            const { data: { users: allUsers } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            const userMap = new Map((allUsers ?? []).map(u => [u.id, u]));
+
+            for (const member of obMembers) {
+                const user = userMap.get(member.supabase_auth_user_id);
+                if (!user || !member.discord_uid) continue;
+                const fullName = (user.user_metadata?.name as string | undefined)
+                    || ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
+                if (fullName) {
+                    await syncDiscordNickname(member.discord_uid, fullName);
+                }
+            }
+        }
+
         revalidatePath('/dashboard/admin/members');
 
-        return { error: null, message: `全${totalMembers || 0}人のメンバーのステータスを更新し、ロールの同期を開始しました。` };
+        return { error: null, message: `全${totalMembers || 0}人のメンバーのステータスを更新し、ロールとニックネームの同期を開始しました。` };
 
     } catch (e: any) {
         console.error("Failed to update for new academic year:", e);
