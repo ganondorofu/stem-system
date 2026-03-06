@@ -266,7 +266,15 @@ function EditProfileDialog({
                 description: 'メンバー情報を更新しました。',
             });
             const updatedTeams = allTeams.filter(t => values.team_ids?.includes(t.id));
-            onProfileUpdate({ ...member, ...values }, updatedTeams);
+            onProfileUpdate({
+                ...member,
+                ...values,
+                raw_user_meta_data: {
+                    ...member.raw_user_meta_data,
+                    last_name: values.last_name,
+                    first_name: values.first_name,
+                },
+            }, updatedTeams);
             onOpenChange(false);
         }
     }
@@ -716,15 +724,10 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>, updatedTeams: Team[]) => {
     setMembers(members.map(m => {
         if (m.supabase_auth_user_id === updatedMember.supabase_auth_user_id) {
-            const newRawUserData = { ...m.raw_user_meta_data };
-            if (updatedMember.last_name) newRawUserData.last_name = updatedMember.last_name;
-            if (updatedMember.first_name) newRawUserData.first_name = updatedMember.first_name;
-            
             return {
                 ...m,
                 ...updatedMember,
                 teams: updatedTeams,
-                raw_user_meta_data: newRawUserData
             };
         }
         return m;
