@@ -41,7 +41,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2, PlusCircle, X, Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { deleteMember, toggleAdminStatus, updateMemberAdmin, getMemberDisplayName, getAllMemberNames } from "@/lib/actions/members"
+import { deleteMember, toggleAdminStatus, updateMemberAdmin, getMemberDisplayName, getAllMemberNames, getDiscordMemberServerStatus } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -561,12 +561,17 @@ function DataTableFacetedFilter<TData, TValue>({
   )
 }
 
-function DataTableToolbar({ table, allTeams, showRealName, handleShowRealNameChange, namesLoaded }: { 
+function DataTableToolbar({ table, allTeams, showRealName, handleShowRealNameChange, namesLoaded, onCheckDiscordStatus, discordStatusLoading, discordStatusLoaded, showNotInServerOnly, onToggleNotInServerOnly }: {
     table: ReturnType<typeof useReactTable<MemberWithTeamsAndRelations>>,
     allTeams: Team[],
     showRealName: boolean,
     handleShowRealNameChange: (checked: boolean) => void,
     namesLoaded: boolean,
+    onCheckDiscordStatus: () => void,
+    discordStatusLoading: boolean,
+    discordStatusLoaded: boolean,
+    showNotInServerOnly: boolean,
+    onToggleNotInServerOnly: (v: boolean) => void,
 }) {
     const isFiltered = table.getState().columnFilters.length > 0
     const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
@@ -593,19 +598,21 @@ function DataTableToolbar({ table, allTeams, showRealName, handleShowRealNameCha
                         className="h-8 w-[130px] hidden md:block"
                     />
                 </div>
-                 <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="show-real-name" 
-                      checked={showRealName}
-                      onCheckedChange={(checked) => handleShowRealNameChange(!!checked)}
-                      disabled={!namesLoaded && showRealName}
-                    />
-                    <label
-                      htmlFor="show-real-name"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      本名を表示する
-                    </label>
+                 <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="show-real-name"
+                        checked={showRealName}
+                        onCheckedChange={(checked) => handleShowRealNameChange(!!checked)}
+                        disabled={!namesLoaded && showRealName}
+                      />
+                      <label htmlFor="show-real-name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        本名を表示する
+                      </label>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={onCheckDiscordStatus} disabled={discordStatusLoading} className="h-8">
+                      {discordStatusLoading ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />確認中...</> : 'Discord状態を確認'}
+                    </Button>
                 </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -630,10 +637,22 @@ function DataTableToolbar({ table, allTeams, showRealName, handleShowRealNameCha
                         options={adminOptions}
                     />
                  )}
-                {isFiltered && (
+                {discordStatusLoaded && (
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="not-in-server"
+                            checked={showNotInServerOnly}
+                            onCheckedChange={(checked) => onToggleNotInServerOnly(!!checked)}
+                        />
+                        <label htmlFor="not-in-server" className="text-sm font-medium leading-none">
+                            未参加のみ
+                        </label>
+                    </div>
+                )}
+                {(isFiltered || showNotInServerOnly) && (
                     <Button
                         variant="ghost"
-                        onClick={() => table.resetColumnFilters()}
+                        onClick={() => { table.resetColumnFilters(); onToggleNotInServerOnly(false); }}
                         className="h-8 px-2 lg:px-3"
                     >
                         リセット
@@ -661,9 +680,25 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const [isProfileDialogOpen, setIsProfileDialogOpen] = React.useState(false)
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = React.useState(false)
   const [showRealName, setShowRealName] = React.useState(false);
+  const [discordServerStatus, setDiscordServerStatus] = React.useState<{ [uid: string]: boolean }>({});
+  const [discordStatusLoading, setDiscordStatusLoading] = React.useState(false);
+  const [discordStatusLoaded, setDiscordStatusLoaded] = React.useState(false);
+  const [showNotInServerOnly, setShowNotInServerOnly] = React.useState(false);
 
 
   const statusMap = { 0: "中学生", 1: "高校生", 2: "OB/OG" }
+
+  const handleCheckDiscordStatus = async () => {
+    setDiscordStatusLoading(true);
+    const result = await getDiscordMemberServerStatus();
+    if (result) {
+      setDiscordServerStatus(result);
+      setDiscordStatusLoaded(true);
+    } else {
+      toast({ title: 'Discord状態の取得に失敗しました', variant: 'destructive' });
+    }
+    setDiscordStatusLoading(false);
+  };
 
   const handleShowRealNameChange = async (checked: boolean) => {
     setShowRealName(checked);
@@ -766,6 +801,8 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
         }
     }
 
+    const isInServer = discordStatusLoaded ? discordServerStatus[member.discord_uid] : undefined;
+
     return (
       <div className="flex items-center gap-3">
         <Avatar>
@@ -773,7 +810,12 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
           <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
         </Avatar>
         <div className="flex flex-col">
-            <span className="font-medium">{displayName}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{displayName}</span>
+              {isInServer === false && (
+                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-500 py-0 px-1">未参加</Badge>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground font-mono">{subText}</span>
         </div>
       </div>
@@ -904,8 +946,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   };
 
 
+  const filteredMembers = React.useMemo(() => {
+    if (!showNotInServerOnly || !discordStatusLoaded) return members;
+    return members.filter(m => discordServerStatus[m.discord_uid] === false);
+  }, [members, showNotInServerOnly, discordStatusLoaded, discordServerStatus]);
+
   const table = useReactTable({
-    data: members,
+    data: filteredMembers,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -927,7 +974,18 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   return (
     <div className="w-full">
       <div className="py-4">
-        <DataTableToolbar table={table} allTeams={allTeams} showRealName={showRealName} handleShowRealNameChange={handleShowRealNameChange} namesLoaded={namesLoaded} />
+        <DataTableToolbar
+          table={table}
+          allTeams={allTeams}
+          showRealName={showRealName}
+          handleShowRealNameChange={handleShowRealNameChange}
+          namesLoaded={namesLoaded}
+          onCheckDiscordStatus={handleCheckDiscordStatus}
+          discordStatusLoading={discordStatusLoading}
+          discordStatusLoaded={discordStatusLoaded}
+          showNotInServerOnly={showNotInServerOnly}
+          onToggleNotInServerOnly={setShowNotInServerOnly}
+        />
       </div>
       <div className="rounded-md border">
         <Table>

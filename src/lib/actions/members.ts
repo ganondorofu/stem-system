@@ -695,3 +695,35 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
         return { error: e.message, message: '' };
     }
 }
+
+export async function getDiscordMemberServerStatus(): Promise<{ [discord_uid: string]: boolean } | null> {
+    await checkAdmin();
+    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
+    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+
+    if (!apiUrl || !token) {
+        console.error('[Discord Bot] API URL or Bearer Token is not configured.');
+        return null;
+    }
+
+    try {
+        const res = await fetch(`${apiUrl}/api/members/server-status`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            cache: 'no-store',
+        });
+        if (!res.ok) {
+            console.error(`[Discord Bot] Failed to fetch server status. Status: ${res.status}`);
+            return null;
+        }
+        const json = await res.json();
+        if (!json.success) return null;
+        const map: { [discord_uid: string]: boolean } = {};
+        for (const item of json.data as { discord_uid: string; is_in_server: boolean }[]) {
+            map[item.discord_uid] = item.is_in_server;
+        }
+        return map;
+    } catch (e) {
+        console.error('[Discord Bot] Error fetching server status:', e);
+        return null;
+    }
+}
