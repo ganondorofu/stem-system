@@ -26,9 +26,10 @@ async function getAllDiscordNames(): Promise<Map<string, string>> {
             return nameMap;
         }
 
-        const data = await response.json();
-        if (Array.isArray(data)) {
-            for (const member of data) {
+        const json = await response.json();
+        const members = json.data ?? json;
+        if (Array.isArray(members)) {
+            for (const member of members) {
                 if (member.uid && member.name) {
                     nameMap.set(member.uid, member.name);
                 }
