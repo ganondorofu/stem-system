@@ -67,8 +67,19 @@ export default async function DashboardGatePage() {
             </div>
         );
     }
-    
-    const discordStatus = await getDiscordMemberStatus(discordUid);
+
+    // Fetch Discord status and member profile in parallel
+    const [discordStatus, memberProfileResult] = await Promise.all([
+        getDiscordMemberStatus(discordUid),
+        supabase
+            .from('members')
+            .select('*')
+            .eq('supabase_auth_user_id', user.id)
+            .is('deleted_at', null)
+            .single(),
+    ]);
+
+    const memberProfile = memberProfileResult.data;
 
     if (!discordStatus) {
          return (
@@ -119,17 +130,9 @@ export default async function DashboardGatePage() {
         );
     }
 
-    // Check if user has "連携済み" role (configurable via env)
     const linkedRoleName = process.env.NEXT_PUBLIC_DISCORD_LINKED_ROLE_NAME || '連携済み';
     const hasLinkedRole = discordStatus.current_roles?.includes(linkedRoleName) ?? false;
 
-    const { data: memberProfile } = await supabase
-        .from('members')
-        .select('*')
-        .eq('supabase_auth_user_id', user.id)
-        .is('deleted_at', null)
-        .single();
-    
     if (!hasLinkedRole && memberProfile) {
         return (
             <div className="flex items-center justify-center h-full p-4">
@@ -162,18 +165,12 @@ export default async function DashboardGatePage() {
 
     const { data: teamRelations } = await supabase
         .from('member_team_relations')
-        .select('team_id')
+        .select('team_id, teams(*)')
         .eq('member_id', user.id);
-    
-    const teamIds = teamRelations?.map(r => r.team_id) || [];
-    let teams: Team[] = [];
-    if (teamIds.length > 0) {
-        const { data: teamsData } = await supabase
-            .from('teams')
-            .select('*')
-            .in('id', teamIds);
-        teams = teamsData || [];
-    }
+
+    const teams: Team[] = teamRelations
+        ?.map(r => (r as any).teams)
+        .filter(Boolean) || [];
     
     const profileWithTeams: MemberWithTeams = {
         ...memberProfile,

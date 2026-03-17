@@ -1,6 +1,20 @@
 import type {Metadata} from 'next';
+import { Inter, Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
+const notoSansJP = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  display: 'swap',
+  variable: '--font-noto-sans-jp',
+});
 
 export const metadata: Metadata = {
   title: 'STEM研究部',
@@ -13,12 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
-      </head>
+    <html lang="ja" className={`${inter.variable} ${notoSansJP.variable}`} suppressHydrationWarning>
       <body className="font-body antialiased">
         {children}
         <Toaster />

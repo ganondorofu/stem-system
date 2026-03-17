@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Noto Sans JP"', 'Inter', 'sans-serif'],
-        headline: ['"Noto Sans JP"', 'Inter', 'sans-serif'],
+        body: ['var(--font-noto-sans-jp)', 'var(--font-inter)', 'sans-serif'],
+        headline: ['var(--font-noto-sans-jp)', 'var(--font-inter)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {

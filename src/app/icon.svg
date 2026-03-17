@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#6D28D9"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Gear outer -->
+  <path d="M256 100 l20 40 l40-10 l15 35 l-30 25 l10 40 l-40 5 l0 42 l-30 0 l0-42 l-40-5 l10-40 l-30-25 l15-35 l40 10 z"
+        fill="none" stroke="white" stroke-width="10" opacity="0.3" transform="translate(0, 20)"/>
+  <!-- Letter S -->
+  <text x="256" y="310" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="260" fill="white" opacity="0.95">S</text>
+  <!-- Small decorative dots -->
+  <circle cx="120" cy="400" r="8" fill="white" opacity="0.3"/>
+  <circle cx="392" cy="112" r="8" fill="white" opacity="0.3"/>
+  <circle cx="140" cy="130" r="5" fill="white" opacity="0.2"/>
+  <circle cx="380" cy="390" r="5" fill="white" opacity="0.2"/>
+</svg>
