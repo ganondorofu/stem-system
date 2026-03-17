@@ -9,39 +9,40 @@ import Loading from './loading';
 async function getMembersData() {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
-    
-    const { data: members, error: membersError } = await supabase
-        .from('members')
-        .select('*')
-        .is('deleted_at', null)
-        .order('generation', { ascending: false })
-        .order('student_number', { ascending: true });
 
+    // Run all independent queries in parallel
+    const [membersResult, teamsResult, relationsResult, usersResult] = await Promise.all([
+        supabase
+            .from('members')
+            .select('*')
+            .is('deleted_at', null)
+            .order('generation', { ascending: false })
+            .order('student_number', { ascending: true }),
+        supabase.from('teams').select('*'),
+        supabase.from('member_team_relations').select('*'),
+        supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    ]);
+
+    const { data: members, error: membersError } = membersResult;
     if (membersError) {
         console.error('Error fetching members:', membersError);
         throw membersError;
     }
 
-    const userIds = members.map(m => m.supabase_auth_user_id);
-    let usersData: any[] = [];
-    if (userIds.length > 0) {
-        const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
-          page: 1,
-          perPage: 1000,
-        });
-        
-        if (usersError) {
-            console.error('Error fetching user metadata:', usersError);
-            throw usersError;
-        }
-        usersData = users.filter(u => userIds.includes(u.id));
-    }
-    
-    const { data: teams, error: teamsError } = await supabase.from('teams').select('*');
+    const { data: teams, error: teamsError } = teamsResult;
     if (teamsError) console.error('Error fetching teams:', teamsError);
 
-    const { data: relations, error: relationsError } = await supabase.from('member_team_relations').select('*');
+    const { data: relations, error: relationsError } = relationsResult;
     if (relationsError) console.error('Error fetching relations:', relationsError);
+
+    const { data: { users }, error: usersError } = usersResult;
+    if (usersError) {
+        console.error('Error fetching user metadata:', usersError);
+        throw usersError;
+    }
+
+    const userIds = new Set(members.map(m => m.supabase_auth_user_id));
+    const usersData = users.filter(u => userIds.has(u.id));
     
     const membersWithData: MemberWithTeamsAndRelations[] = members.map((member) => {
         const user = usersData.find(u => u.id === member.supabase_auth_user_id);

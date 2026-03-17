@@ -5,51 +5,53 @@ import type { User } from '@supabase/supabase-js';
 import type { EnrichedMember } from '@/lib/types';
 
 
-async function getDiscordName(discordUid: string): Promise<string | null> {
+async function getAllDiscordNames(): Promise<Map<string, string>> {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
+    const nameMap = new Map<string, string>();
 
-    console.log(`[getDiscordName] Attempting to fetch name for discord_uid: ${discordUid}`);
-
-    if (!apiUrl || !token || !discordUid) {
-        console.error(`[getDiscordName] Aborting: API URL, Token, or Discord UID is missing.`);
-        return null;
+    if (!apiUrl || !token) {
+        console.error('[getAllDiscordNames] API URL or Token is missing.');
+        return nameMap;
     }
 
     try {
-        const response = await fetch(`${apiUrl}/api/nickname?discord_uid=${discordUid}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            },
+        const response = await fetch(`${apiUrl}/api/members`, {
+            headers: { 'Authorization': `Bearer ${token}` },
             cache: 'no-store',
         });
-        
-        const responseText = await response.text();
-        console.log(`[getDiscordName] Response for ${discordUid} - Status: ${response.status}, Body: ${responseText}`);
 
         if (!response.ok) {
-            return null;
+            console.error('[getAllDiscordNames] Failed to fetch members:', response.status);
+            return nameMap;
         }
-        
-        const data = JSON.parse(responseText);
-        return data.name_only || null;
+
+        const json = await response.json();
+        const members = json.data ?? json;
+        if (Array.isArray(members)) {
+            for (const member of members) {
+                if (member.uid && member.name) {
+                    nameMap.set(member.uid, member.name);
+                }
+            }
+        }
     } catch (error) {
-        console.error(`[getDiscordName] Error fetching nickname for ${discordUid}:`, error);
-        return null;
+        console.error('[getAllDiscordNames] Error:', error);
     }
+
+    return nameMap;
 }
 
 async function getTeamsData() {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
-    
-    const teamsPromise = supabase.from('teams').select('*').order('name');
-    const membersPromise = supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null);
-    const relationsPromise = supabase.from('member_team_relations').select('*');
-    const leadersPromise = supabase.from('team_leaders').select('*');
 
-    const [teamsRes, membersRes, relationsRes, leadersRes] = await Promise.all([
-        teamsPromise, membersPromise, relationsPromise, leadersPromise
+    const [teamsRes, membersRes, relationsRes, leadersRes, discordNames] = await Promise.all([
+        supabase.from('teams').select('*').order('name'),
+        supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null),
+        supabase.from('member_team_relations').select('*'),
+        supabase.from('team_leaders').select('*'),
+        getAllDiscordNames(),
     ]);
 
     if (teamsRes.error) console.error('Error fetching teams:', teamsRes.error);
@@ -69,17 +71,17 @@ async function getTeamsData() {
        else users = usersData;
     }
 
-    const enrichedMembers: EnrichedMember[] = await Promise.all(members.map(async (member) => {
+    const enrichedMembers: EnrichedMember[] = members.map((member) => {
         const user = users.find(u => u.id === member.supabase_auth_user_id);
-        const discordName = await getDiscordName(member.discord_uid);
+        const discordName = discordNames.get(member.discord_uid) || null;
         const displayName = discordName || user?.user_metadata.name || '名前不明';
-        
+
         return {
             ...member,
             displayName,
             avatar_url: user?.user_metadata.avatar_url || null,
         }
-    }));
+    });
 
     return {
         teams: teamsRes.data || [],
