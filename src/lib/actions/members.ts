@@ -703,3 +703,52 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
         return { error: e.message, message: '' };
     }
 }
+
+
+export async function renameGraduatesToNewFormat(): Promise<{ error: string | null, message: string }> {
+    try {
+        await checkAdmin();
+        const supabase = await createAdminClient();
+
+        const { data: obMembers, error: fetchError } = await supabase
+            .from('members')
+            .select('supabase_auth_user_id, discord_uid')
+            .eq('status', 2)
+            .is('deleted_at', null)
+            .not('discord_uid', 'is', null);
+
+        if (fetchError) throw new Error(`OB/OGメンバーの取得に失敗: ${fetchError.message}`);
+        if (!obMembers || obMembers.length === 0) {
+            return { error: null, message: 'OB/OGメンバーが見つかりませんでした。' };
+        }
+
+        const { data: { users: allUsers }, error: usersError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (usersError) throw new Error(`ユーザー情報の取得に失敗: ${usersError.message}`);
+
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const member of obMembers) {
+            const user = userMap.get(member.supabase_auth_user_id);
+            if (!user || !member.discord_uid) { failCount++; continue; }
+            const fullName = (user.user_metadata?.name as string | undefined)
+                || ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
+            if (fullName) {
+                await syncDiscordNickname(member.discord_uid, fullName);
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+
+        return {
+            error: null,
+            message: `${successCount}人の卒業生のニックネームを「名前(第n期卒業生)」形式に更新しました。${failCount > 0 ? `（${failCount}人は名前情報なしのためスキップ）` : ''}`,
+        };
+    } catch (e: any) {
+        console.error('Failed to rename graduates:', e);
+        return { error: e.message, message: '' };
+    }
+}

@@ -37,7 +37,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2, PlusCircle, X } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, User, GraduationCap, School, Building, Shield, Star, Loader2, PlusCircle, X, Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { deleteMember, toggleAdminStatus, updateMemberAdmin, getMemberDisplayName, getAllMemberNames } from "@/lib/actions/members"
 import { useToast } from "@/hooks/use-toast"
