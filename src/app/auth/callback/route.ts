@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
   const protocol = forwardedProto || 'http';
   const origin = `${protocol}://${host}`;
 
+  // nextが絶対URLかどうか判定
+  const isAbsoluteUrl = next.startsWith('http://') || next.startsWith('https://');
+  const redirectUrl = isAbsoluteUrl ? next : `${origin}${next}`;
+
   // Get request headers for debugging
   const headers = {
     host: request.headers.get('host'),
@@ -39,7 +43,6 @@ export async function GET(request: NextRequest) {
     if (existingSession) {
       // User is already authenticated, redirect immediately
       console.log('[Auth Callback] User already authenticated, skipping exchange')
-      const redirectUrl = `${origin}${next}`
       const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
       return redirectResponse
@@ -55,7 +58,6 @@ export async function GET(request: NextRequest) {
     })
 
     if (!error) {
-      const redirectUrl = `${origin}${next}`
       console.log('[Auth Callback] Redirecting to:', redirectUrl)
       
       // Create redirect response with proper headers
