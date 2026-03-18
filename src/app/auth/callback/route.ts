@@ -49,12 +49,17 @@ export async function GET(request: NextRequest) {
   const isAbsoluteUrl = next.startsWith('http://') || next.startsWith('https://');
   const redirectUrl = isAbsoluteUrl ? next : `${origin}${next}`;
 
-  console.log('[Auth Callback] Request:', {
+  // デバッグ情報
+  const debugInfo = {
+    httpOnlyCookie: oauthRedirectCookie ? 'found' : 'missing',
+    clientCookie: oauthRedirectClient ? 'found' : 'missing',
+    nextParam: nextParam ? 'found' : 'missing',
+    resolvedTo: next === '/dashboard' ? 'dashboard_fallback' : 'oauth_url',
     code: code ? 'present' : 'missing',
-    oauthRedirectCookie: oauthRedirectCookie ? 'present' : 'missing',
-    resolvedNext: next,
-    redirectUrl,
-  })
+    allCookieNames: request.cookies.getAll().map(c => c.name).join(','),
+  };
+
+  console.log('[Auth Callback] Debug:', JSON.stringify(debugInfo))
 
   if (code) {
     // Cookieを収集するためにカスタムSupabaseクライアントを作成
@@ -86,8 +91,21 @@ export async function GET(request: NextRequest) {
     })
 
     if (!error) {
-      console.log('[Auth Callback] Redirecting to:', redirectUrl)
-      const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
+      // デバッグ: OAuth リダイレクトが見つからない場合、情報をURLに付加
+      let finalRedirectUrl = redirectUrl;
+      if (next === '/dashboard') {
+        const debugParams = new URLSearchParams({
+          _oauth_debug: '1',
+          _d_httponly: debugInfo.httpOnlyCookie,
+          _d_client: debugInfo.clientCookie,
+          _d_next: debugInfo.nextParam,
+          _d_cookies: debugInfo.allCookieNames,
+        });
+        finalRedirectUrl = `${origin}/dashboard?${debugParams.toString()}`;
+      }
+
+      console.log('[Auth Callback] Redirecting to:', finalRedirectUrl)
+      const redirectResponse = NextResponse.redirect(finalRedirectUrl, { status: 303 })
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
       
       // Supabaseのセッションcookieをリダイレクトレスポンスに設定
