@@ -22,14 +22,22 @@ function LoginPage() {
   const handleLogin = async () => {
     if (redirect) {
       // OAuth フローの場合：リダイレクト先をクライアント側 Cookie にも保存
-      // （Supabase の redirectTo query param が消える場合のフォールバック）
-      document.cookie = `oauth_redirect_client=${encodeURIComponent(redirect)};path=/;max-age=600;samesite=lax`;
+      // （httpOnly cookie や next param が消える場合のフォールバック）
+      // redirect は絶対URLの可能性があるので、パス+クエリのみ抽出して保存
+      let redirectPath = redirect;
+      try {
+        const parsed = new URL(redirect);
+        redirectPath = `${parsed.pathname}${parsed.search}`;
+      } catch {
+        // 相対パスの場合はそのまま
+      }
+      document.cookie = `oauth_redirect_client=${encodeURIComponent(redirectPath)};path=/;max-age=600;samesite=lax`;
     }
 
-    // OAuth フローからのリダイレクトがある場合、auth/callback に next パラメータとして渡す
-    const callbackUrl = redirect
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`
-      : `${window.location.origin}/auth/callback`;
+    // Supabase の redirectTo にはシンプルな callback URL のみ渡す。
+    // OAuth リダイレクト先は httpOnly cookie と client cookie で保持する。
+    // GoTrue が query parameter を消す可能性があるため、next param は使わない。
+    const callbackUrl = `${window.location.origin}/auth/callback`;
 
     await supabase.auth.signInWithOAuth({
       provider: 'discord',

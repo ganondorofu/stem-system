@@ -1,6 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * セッションCookieをリダイレクトレスポンスにコピーする。
+ * getUser() がトークンをリフレッシュした場合、新しいCookieをリダイレクトにも
+ * 含めないと、ブラウザが古い（消費済みの）リフレッシュトークンで次のリクエストを
+ * 送り、セッションが無効になる。
+ */
+function copySessionCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value)
+  })
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -40,11 +52,13 @@ export async function updateSession(request: NextRequest) {
 
   // ログインしていないユーザーが保護されたページにアクセスした場合、ログインページにリダイレクト
   if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginRedirect = NextResponse.redirect(new URL('/login', request.url))
+    copySessionCookies(supabaseResponse, loginRedirect)
+    return loginRedirect
   }
-  
+
   // ログインしているユーザーがログインページにアクセスした場合
-  if(user && request.nextUrl.pathname.startsWith('/login')){
+  if (user && request.nextUrl.pathname.startsWith('/login')) {
     const redirectParam = request.nextUrl.searchParams.get('redirect');
     if (redirectParam) {
       // OAuth フローからのリダイレクト：同一オリジンの /oauth/ パスのみ許可
@@ -52,13 +66,17 @@ export async function updateSession(request: NextRequest) {
         const redirectUrl = new URL(redirectParam);
         const requestOrigin = new URL(request.url).origin;
         if (redirectUrl.origin === requestOrigin && redirectUrl.pathname.startsWith('/oauth/')) {
-          return NextResponse.redirect(redirectUrl);
+          const oauthRedirect = NextResponse.redirect(redirectUrl);
+          copySessionCookies(supabaseResponse, oauthRedirect)
+          return oauthRedirect;
         }
       } catch {
         // 不正なURLの場合はダッシュボードへ
       }
     }
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const dashRedirect = NextResponse.redirect(new URL('/dashboard', request.url))
+    copySessionCookies(supabaseResponse, dashRedirect)
+    return dashRedirect
   }
 
   return supabaseResponse

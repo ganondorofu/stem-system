@@ -48,20 +48,32 @@ export async function GET(request: NextRequest) {
 
   // ユーザーのログイン状態を確認
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
+  console.log('[OAuth Authorize] getUser:', {
+    hasUser: !!user,
+    userId: user?.id,
+    error: authError?.message,
+    cookieNames: request.cookies.getAll().map(c => c.name).join(','),
+  });
+
   if (authError || !user) {
     // 未ログインの場合：ログイン画面へリダイレクト
-    // Cookie と query parameter の両方でリダイレクト先を保存（フォールバック対策）
+    // リダイレクト先をパス+クエリで保存（内部URLの漏洩を防止）
+    const requestUrl = new URL(request.url);
+    const oauthPath = `${requestUrl.pathname}${requestUrl.search}`;
+
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', request.url);
     const response = NextResponse.redirect(loginUrl, { status: 307 });
-    response.cookies.set('oauth_redirect', request.url, {
+    // httpOnly Cookie にパスを保存（auth callback で読み取り）
+    response.cookies.set('oauth_redirect', oauthPath, {
       httpOnly: true,
       secure: request.url.startsWith('https'),
       sameSite: 'lax',
       maxAge: 600,
       path: '/',
     });
+    console.log('[OAuth Authorize] Redirecting to login, oauth_redirect cookie:', oauthPath.substring(0, 80));
     return response;
   }
 
