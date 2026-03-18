@@ -29,7 +29,6 @@ interface Application {
   id: string;
   name: string;
   client_id: string;
-  client_secret_hash: string;
   redirect_uris: string[];
   created_at: string;
 }
