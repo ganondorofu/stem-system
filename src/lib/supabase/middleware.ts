@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -11,22 +11,18 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
         },
-        set(name: string, value: string, options: CookieOptions) {
-          supabaseResponse.cookies.set({
-            name,
-            value,
-            ...options,
+        setAll(cookiesToSet) {
+          // リクエストCookieにも書き込む（下流のRoute Handlerに伝播するため）
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
           })
-        },
-        remove(name: string, options: CookieOptions) {
-          supabaseResponse.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
         },
       },
     }
@@ -35,8 +31,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const url = request.nextUrl.clone()
 
   // 公開パス（認証不要）
   const isPublicPath = request.nextUrl.pathname.startsWith('/login')
@@ -53,7 +47,6 @@ export async function updateSession(request: NextRequest) {
   if(user && request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.searchParams.has('redirect')){
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
-
 
   return supabaseResponse
 }
