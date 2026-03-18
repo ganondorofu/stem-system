@@ -18,9 +18,9 @@ export async function POST(request: Request) {
   }
 
   const { data: member } = await supabase
-    .from('member.members')
+    .from('members')
     .select('is_admin')
-    .eq('id', user.id)
+    .eq('supabase_auth_user_id', user.id)
     .single();
 
   if (!member?.is_admin) {

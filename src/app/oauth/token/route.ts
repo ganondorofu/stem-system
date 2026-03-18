@@ -124,9 +124,9 @@ export async function POST(request: Request) {
 
   // ユーザー情報を取得
   const { data: member } = await supabase
-    .from('member.members')
+    .from('members')
     .select('*')
-    .eq('id', authCode.user_id)
+    .eq('supabase_auth_user_id', authCode.user_id)
     .single();
 
   if (!member) {

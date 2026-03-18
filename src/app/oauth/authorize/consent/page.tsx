@@ -33,9 +33,9 @@ export default async function ConsentPage({
 
   // ユーザー情報を取得
   const { data: member } = await supabase
-    .from('member.members')
+    .from('members')
     .select('display_name')
-    .eq('id', user.id)
+    .eq('supabase_auth_user_id', user.id)
     .single();
 
   return (
