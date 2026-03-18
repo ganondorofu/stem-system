@@ -6,10 +6,11 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import { isValidRedirectUri, redirectWithError, createOAuthError } from '@/lib/oauth';
+import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { isValidRedirectUri, createOAuthError } from '@/lib/oauth';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
   // OAuth パラメータを取得
@@ -49,10 +50,17 @@ export async function GET(request: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   
   if (authError || !user) {
-    // 未ログインの場合はログイン画面へリダイレクト
+    // 未ログインの場合：サーバー側でCookieにリダイレクト先を保存してログイン画面へ
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', request.url);
-    redirect(loginUrl.toString());
+    const response = NextResponse.redirect(loginUrl, { status: 307 });
+    response.cookies.set('oauth_redirect', request.url, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 600,
+      path: '/',
+    });
+    return response;
   }
 
   // クライアントアプリケーションを検証（RPC経由）
@@ -96,5 +104,5 @@ export async function GET(request: Request) {
     consentUrl.searchParams.set('already_consented', 'true');
   }
 
-  redirect(consentUrl.toString());
+  return NextResponse.redirect(consentUrl, { status: 307 });
 }

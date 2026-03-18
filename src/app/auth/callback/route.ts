@@ -5,10 +5,11 @@ import { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  // クエリパラメータまたはCookieからリダイレクト先を取得
-  const nextParam = searchParams.get('next');
+  
+  // OAuth リダイレクト先をCookieから取得（authorize routeが設定）
   const oauthRedirectCookie = request.cookies.get('oauth_redirect')?.value;
-  const next = nextParam || (oauthRedirectCookie ? decodeURIComponent(oauthRedirectCookie) : null) || '/dashboard';
+  const nextParam = searchParams.get('next');
+  const next = oauthRedirectCookie || nextParam || '/dashboard';
 
   // Get the actual origin from request headers (for proxy support)
   const forwardedHost = request.headers.get('x-forwarded-host');
@@ -21,40 +22,16 @@ export async function GET(request: NextRequest) {
   const isAbsoluteUrl = next.startsWith('http://') || next.startsWith('https://');
   const redirectUrl = isAbsoluteUrl ? next : `${origin}${next}`;
 
-  // Get request headers for debugging
-  const headers = {
-    host: request.headers.get('host'),
-    'x-forwarded-for': request.headers.get('x-forwarded-for'),
-    'x-forwarded-proto': forwardedProto,
-    'x-forwarded-host': forwardedHost,
-  };
-
-  console.log('[Auth Callback] Received request:', {
+  console.log('[Auth Callback] Request:', {
     code: code ? 'present' : 'missing',
-    next,
-    origin,
-    url: request.url,
-    headers,
+    oauthRedirectCookie: oauthRedirectCookie ? 'present' : 'missing',
+    nextParam,
+    resolvedNext: next,
+    redirectUrl,
   })
 
   if (code) {
     const supabase = await createClient()
-    
-    // Check if user is already authenticated
-    const { data: { session: existingSession } } = await supabase.auth.getSession()
-    
-    if (existingSession) {
-      // User is already authenticated, redirect immediately
-      console.log('[Auth Callback] User already authenticated, skipping exchange')
-      const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
-      redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-      // oauth_redirect Cookieをクリア
-      if (oauthRedirectCookie) {
-        redirectResponse.cookies.delete('oauth_redirect');
-      }
-      return redirectResponse
-    }
-    
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     console.log('[Auth Callback] Exchange result:', {
@@ -66,21 +43,12 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       console.log('[Auth Callback] Redirecting to:', redirectUrl)
-      
-      // Create redirect response with proper headers
-      const redirectResponse = NextResponse.redirect(redirectUrl, {
-        status: 303, // Use 303 See Other to prevent POST->GET issues
-      })
-      
-      // Prevent caching of this redirect
+      const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-      redirectResponse.headers.set('Pragma', 'no-cache')
-      redirectResponse.headers.set('Expires', '0')
       // oauth_redirect Cookieをクリア
       if (oauthRedirectCookie) {
         redirectResponse.cookies.delete('oauth_redirect');
       }
-      
       return redirectResponse
     }
     
