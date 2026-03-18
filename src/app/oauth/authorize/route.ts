@@ -55,12 +55,11 @@ export async function GET(request: Request) {
     redirect(loginUrl.toString());
   }
 
-  // クライアントアプリケーションを検証（Service Role で取得）
-  const { data: application, error: appError } = await supabase
-    .schema('oauth').from('applications')
-    .select('*')
-    .eq('client_id', clientId)
-    .single();
+  // クライアントアプリケーションを検証（RPC経由）
+  const { data: applications, error: appError } = await supabase
+    .rpc('get_application_by_client_id', { p_client_id: clientId });
+
+  const application = applications?.[0];
 
   if (appError || !application) {
     return new Response(
@@ -77,13 +76,11 @@ export async function GET(request: Request) {
     );
   }
 
-  // 既に承認済みかチェック
-  const { data: existingConsent } = await supabase
-    .schema('oauth').from('user_consents')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('application_id', application.id)
-    .single();
+  // 既に承認済みかチェック（RPC経由）
+  const { data: hasConsent } = await supabase
+    .rpc('check_user_consent', { p_user_id: user.id, p_application_id: application.id });
+
+  const existingConsent = hasConsent;
 
   // 承認画面にパラメータを渡す
   const consentUrl = new URL('/oauth/authorize/consent', request.url);

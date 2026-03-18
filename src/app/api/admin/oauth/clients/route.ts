@@ -56,7 +56,6 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Failed to create OAuth client:', error);
-    console.error('DEBUG: Full error details:', JSON.stringify(error, null, 2));
     return NextResponse.json(
       { error: 'Failed to create client' },
       { status: 500 }

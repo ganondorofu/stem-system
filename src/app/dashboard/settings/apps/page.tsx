@@ -11,26 +11,23 @@ async function getUserConsents(userId: string) {
   const supabase = await createClient();
   
   const { data: consents, error } = await supabase
-    .schema('oauth').from('user_consents')
-    .select(`
-      id,
-      scope,
-      granted_at,
-      application:application_id (
-        id,
-        name,
-        redirect_uris
-      )
-    `)
-    .eq('user_id', userId)
-    .order('granted_at', { ascending: false });
+    .rpc('list_user_consents', { p_user_id: userId });
 
   if (error) {
     console.error('Failed to fetch user consents:', error);
     return [];
   }
 
-  return consents || [];
+  // RPCの返り値をUI用に整形
+  return (consents || []).map((c: { id: string; application_id: string; application_name: string; scope: string; granted_at: string }) => ({
+    id: c.id,
+    scope: c.scope,
+    granted_at: c.granted_at,
+    application: {
+      id: c.application_id,
+      name: c.application_name,
+    },
+  }));
 }
 
 export default async function ConnectedAppsPage() {

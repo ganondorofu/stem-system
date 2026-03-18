@@ -39,12 +39,11 @@ export async function handleConsent(formData: FormData) {
     redirect('/login');
   }
 
-  // クライアントアプリケーションを取得
-  const { data: application } = await supabase
-    .schema('oauth').from('applications')
-    .select('*')
-    .eq('client_id', clientId)
-    .single();
+  // クライアントアプリケーションを取得（RPC経由）
+  const { data: applications } = await supabase
+    .rpc('get_application_by_client_id', { p_client_id: clientId });
+
+  const application = applications?.[0];
 
   if (!application) {
     const errorUrl = redirectWithError(
@@ -55,31 +54,29 @@ export async function handleConsent(formData: FormData) {
     redirect(errorUrl);
   }
 
-  // ユーザー承認を記録（既存の場合は更新）
+  // ユーザー承認を記録（RPC経由）
   await supabase
-    .schema('oauth').from('user_consents')
-    .upsert({
-      user_id: user.id,
-      application_id: application.id,
-      scope,
+    .rpc('create_user_consent', {
+      p_user_id: user.id,
+      p_application_id: application.id,
+      p_scope: scope,
     });
 
   // 認可コードを生成
   const code = generateRandomString(32);
   const expiresAt = getAuthCodeExpiry();
 
-  // 認可コードをDBに保存
-  const { error: codeError } = await supabase
-    .schema('oauth').from('authorization_codes')
-    .insert({
-      code,
-      application_id: application.id,
-      user_id: user.id,
-      redirect_uri: redirectUri,
-      code_challenge: codeChallenge,
-      code_challenge_method: codeChallengeMethod,
-      scope,
-      expires_at: expiresAt.toISOString(),
+  // 認可コードをDBに保存（RPC経由）
+  const { data: codeCreated, error: codeError } = await supabase
+    .rpc('create_authorization_code', {
+      p_code: code,
+      p_application_id: application.id,
+      p_user_id: user.id,
+      p_redirect_uri: redirectUri,
+      p_code_challenge: codeChallenge,
+      p_code_challenge_method: codeChallengeMethod,
+      p_scope: scope,
+      p_expires_at: expiresAt.toISOString(),
     });
 
   if (codeError) {

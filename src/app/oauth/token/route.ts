@@ -42,12 +42,11 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
 
-  // クライアント認証
-  const { data: application, error: appError } = await supabase
-    .schema('oauth').from('applications')
-    .select('*')
-    .eq('client_id', clientId)
-    .single();
+  // クライアント認証（RPC経由）
+  const { data: applications, error: appError } = await supabase
+    .rpc('get_application_by_client_id', { p_client_id: clientId });
+
+  const application = applications?.[0];
 
   if (appError || !application) {
     return NextResponse.json(
@@ -65,12 +64,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // 認可コードを取得
-  const { data: authCode, error: codeError } = await supabase
-    .schema('oauth').from('authorization_codes')
-    .select('*')
-    .eq('code', code)
-    .single();
+  // 認可コードを取得（RPC経由）
+  const { data: authCodes, error: codeError } = await supabase
+    .rpc('get_authorization_code', { p_code: code });
+
+  const authCode = authCodes?.[0];
 
   if (codeError || !authCode) {
     return NextResponse.json(
@@ -96,11 +94,9 @@ export async function POST(request: Request) {
 
   // 有効期限チェック
   if (new Date(authCode.expires_at) < new Date()) {
-    // 期限切れコードを削除
+    // 期限切れコードを削除（RPC経由）
     await supabase
-      .schema('oauth').from('authorization_codes')
-      .delete()
-      .eq('code', code);
+      .rpc('delete_authorization_code', { p_code: code });
 
     return NextResponse.json(
       createOAuthError('invalid_grant', 'Authorization code expired'),
@@ -149,11 +145,9 @@ export async function POST(request: Request) {
     clientId
   );
 
-  // 使用済みコードを削除
+  // 使用済みコードを削除（RPC経由）
   await supabase
-    .schema('oauth').from('authorization_codes')
-    .delete()
-    .eq('code', code);
+    .rpc('delete_authorization_code', { p_code: code });
 
   // トークンレスポンスを返す
   return NextResponse.json({

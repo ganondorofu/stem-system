@@ -19,12 +19,9 @@ export async function DELETE(
 
   const { id } = await params;
 
-  // 自分の承認記録のみ削除可能（RLSで保護されている）
-  const { error } = await supabase
-    .schema('oauth').from('user_consents')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
+  // 自分の承認記録のみ削除可能（RPC経由）
+  const { data: deleted, error } = await supabase
+    .rpc('delete_user_consent', { p_consent_id: id, p_user_id: user.id });
 
   if (error) {
     console.error('Failed to revoke consent:', error);
