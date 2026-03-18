@@ -43,8 +43,6 @@ export async function POST(request: Request) {
   const clientSecret = generateRandomString(48);
   const clientSecretHash = await hashClientSecret(clientSecret);
 
-  const supabase = await createClient();
-
   // RPC関数を使用してアプリケーションを作成
   const { data: application, error } = await supabase
     .rpc('create_application', {
