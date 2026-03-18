@@ -5,7 +5,7 @@
  * 認可コードをアクセストークン（JWT）に交換
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import {
   verifyClientSecret,
   verifyCodeChallenge,
@@ -40,7 +40,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createClient();
+  // トークンエンドポイントはサーバー間通信（Cookie なし）なので
+  // RLS をバイパスする Admin クライアントを使用
+  const supabase = await createAdminClient();
 
   // クライアント認証（RPC経由）
   const { data: applications, error: appError } = await supabase
