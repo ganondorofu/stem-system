@@ -38,13 +38,19 @@ export async function updateSession(request: NextRequest) {
 
   const url = request.nextUrl.clone()
 
+  // 公開パス（認証不要）
+  const isPublicPath = request.nextUrl.pathname.startsWith('/login')
+    || request.nextUrl.pathname.startsWith('/auth/callback')
+    || request.nextUrl.pathname.startsWith('/oauth')
+    || request.nextUrl.pathname.startsWith('/api');
+
   // ログインしていないユーザーが保護されたページにアクセスした場合、ログインページにリダイレクト
-  if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth/callback')) {
+  if (!user && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   
-  // ログインしているユーザーがログインページにアクセスした場合、ダッシュボードにリダイレクト
-  if(user && request.nextUrl.pathname.startsWith('/login')){
+  // ログインしているユーザーがログインページにアクセスした場合（OAuthリダイレクトでない場合のみ）
+  if(user && request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.searchParams.has('redirect')){
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
