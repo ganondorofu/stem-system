@@ -43,8 +43,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   
-  // ログインしているユーザーがログインページにアクセスした場合（OAuthリダイレクトでない場合のみ）
-  if(user && request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.searchParams.has('redirect')){
+  // ログインしているユーザーがログインページにアクセスした場合
+  if(user && request.nextUrl.pathname.startsWith('/login')){
+    const redirectParam = request.nextUrl.searchParams.get('redirect');
+    if (redirectParam) {
+      // OAuth フローからのリダイレクト：同一オリジンの /oauth/ パスのみ許可
+      try {
+        const redirectUrl = new URL(redirectParam);
+        const requestOrigin = new URL(request.url).origin;
+        if (redirectUrl.origin === requestOrigin && redirectUrl.pathname.startsWith('/oauth/')) {
+          return NextResponse.redirect(redirectUrl);
+        }
+      } catch {
+        // 不正なURLの場合はダッシュボードへ
+      }
+    }
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

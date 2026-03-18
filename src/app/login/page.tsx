@@ -20,6 +20,12 @@ function LoginPage() {
   const redirect = searchParams.get('redirect');
 
   const handleLogin = async () => {
+    if (redirect) {
+      // OAuth フローの場合：リダイレクト先をクライアント側 Cookie にも保存
+      // （Supabase の redirectTo query param が消える場合のフォールバック）
+      document.cookie = `oauth_redirect_client=${encodeURIComponent(redirect)};path=/;max-age=600;samesite=lax`;
+    }
+
     // OAuth フローからのリダイレクトがある場合、auth/callback に next パラメータとして渡す
     const callbackUrl = redirect
       ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`

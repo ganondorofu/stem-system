@@ -13,10 +13,15 @@ export async function GET(request: NextRequest) {
   const protocol = forwardedProto || 'http';
   const origin = `${protocol}://${host}`;
 
-  // OAuth リダイレクト先をCookieまたはquery parameterから取得
-  // Cookie（httpOnly）は安全なのでそのまま使用
-  // query parameterはオープンリダイレクト防止のためパス部分のみ使用
+  // OAuth リダイレクト先を複数ソースから取得（優先順位順）
+  // 1. httpOnly Cookie（サーバー側で設定、最も安全）
+  // 2. クライアント側 Cookie（login ページで設定、Supabase が next param を消す場合のバックアップ）
+  // 3. next query parameter（Supabase redirectTo 経由）
+  // 4. デフォルト: /dashboard
   const oauthRedirectCookie = request.cookies.get('oauth_redirect')?.value;
+  const oauthRedirectClient = request.cookies.get('oauth_redirect_client')?.value
+    ? decodeURIComponent(request.cookies.get('oauth_redirect_client')!.value)
+    : undefined;
   let nextParam = searchParams.get('next');
 
   // query parameterのnextが絶対URLの場合、パス+クエリのみ抽出（セキュリティ対策）
@@ -29,7 +34,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const next = oauthRedirectCookie || nextParam || '/dashboard';
+  // クライアント側 Cookie も同様にパス+クエリのみ抽出
+  let clientRedirectPath: string | undefined;
+  if (oauthRedirectClient) {
+    try {
+      const clientUrl = new URL(oauthRedirectClient);
+      clientRedirectPath = `${clientUrl.pathname}${clientUrl.search}`;
+    } catch {
+      clientRedirectPath = undefined;
+    }
+  }
+
+  const next = oauthRedirectCookie || nextParam || clientRedirectPath || '/dashboard';
   const isAbsoluteUrl = next.startsWith('http://') || next.startsWith('https://');
   const redirectUrl = isAbsoluteUrl ? next : `${origin}${next}`;
 
@@ -82,6 +98,10 @@ export async function GET(request: NextRequest) {
       // oauth_redirect Cookieをクリア
       if (oauthRedirectCookie) {
         redirectResponse.cookies.delete('oauth_redirect');
+      }
+      // クライアント側 Cookie もクリア
+      if (oauthRedirectClient) {
+        redirectResponse.cookies.delete('oauth_redirect_client');
       }
       return redirectResponse
     }
