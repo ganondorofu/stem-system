@@ -56,6 +56,9 @@ export async function createAdminClient() {
 /**
  * OAuth スキーマ用のクライアントを作成
  * oauth.applications, oauth.authorization_codes, oauth.user_consents にアクセスする際に使用
+ * 
+ * Note: Supabase PostgRESTでoauthスキーマが公開されていない場合は、
+ * createAdminClient()を使用して .schema('oauth') をクエリに追加する必要があります
  */
 export async function createOAuthClient() {
   const cookieStore = await cookies()
@@ -67,9 +70,10 @@ export async function createOAuthClient() {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined in .env');
   }
   
+  // memberスキーマをデフォルトにして、クエリごとに.schema('oauth')を使用
   return createServerClient(supabaseUrl, supabaseKey, {
     db: {
-      schema: 'oauth', // OAuth専用スキーマ
+      schema: 'member', // デフォルトはmember（変更しない）
     },
     auth: {
       autoRefreshToken: false,

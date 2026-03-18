@@ -41,7 +41,7 @@ export async function handleConsent(formData: FormData) {
 
   // クライアントアプリケーションを取得
   const { data: application } = await supabase
-    .from('applications')
+    .schema('oauth').from('applications')
     .select('*')
     .eq('client_id', clientId)
     .single();
@@ -57,7 +57,7 @@ export async function handleConsent(formData: FormData) {
 
   // ユーザー承認を記録（既存の場合は更新）
   await supabase
-    .from('user_consents')
+    .schema('oauth').from('user_consents')
     .upsert({
       user_id: user.id,
       application_id: application.id,
@@ -70,7 +70,7 @@ export async function handleConsent(formData: FormData) {
 
   // 認可コードをDBに保存
   const { error: codeError } = await supabase
-    .from('authorization_codes')
+    .schema('oauth').from('authorization_codes')
     .insert({
       code,
       application_id: application.id,

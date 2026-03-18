@@ -13,7 +13,7 @@ async function getOAuthClients() {
   const supabaseAdmin = await createOAuthClient();
   
   const { data: applications, error } = await supabaseAdmin
-    .from('applications')
+    .schema('oauth').from('applications')
     .select('*')
     .order('created_at', { ascending: false });
 

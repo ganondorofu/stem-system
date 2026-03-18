@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
   // クライアント認証
   const { data: application, error: appError } = await supabase
-    .from('applications')
+    .schema('oauth').from('applications')
     .select('*')
     .eq('client_id', clientId)
     .single();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
   // 認可コードを取得
   const { data: authCode, error: codeError } = await supabase
-    .from('authorization_codes')
+    .schema('oauth').from('authorization_codes')
     .select('*')
     .eq('code', code)
     .single();
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   if (new Date(authCode.expires_at) < new Date()) {
     // 期限切れコードを削除
     await supabase
-      .from('authorization_codes')
+      .schema('oauth').from('authorization_codes')
       .delete()
       .eq('code', code);
 
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
   // 使用済みコードを削除
   await supabase
-    .from('authorization_codes')
+    .schema('oauth').from('authorization_codes')
     .delete()
     .eq('code', code);
 

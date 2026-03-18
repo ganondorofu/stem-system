@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   // DBに保存
   const { data: application, error } = await supabaseOAuth
-    .from('applications')
+    .schema('oauth').from('applications')
     .insert({
       name,
       client_id: clientId,

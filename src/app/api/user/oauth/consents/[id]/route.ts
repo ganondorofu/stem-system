@@ -21,7 +21,7 @@ export async function DELETE(
 
   // 自分の承認記録のみ削除可能（RLSで保護されている）
   const { error } = await supabase
-    .from('user_consents')
+    .schema('oauth').from('user_consents')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id);

@@ -34,7 +34,7 @@ export async function DELETE(
 
   // クライアントを削除
   const { error } = await supabaseAdmin
-    .from('applications')
+    .schema('oauth').from('applications')
     .delete()
     .eq('id', id);
 
