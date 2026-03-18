@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 
@@ -25,26 +25,49 @@ export async function GET(request: NextRequest) {
   console.log('[Auth Callback] Request:', {
     code: code ? 'present' : 'missing',
     oauthRedirectCookie: oauthRedirectCookie ? 'present' : 'missing',
-    nextParam,
     resolvedNext: next,
     redirectUrl,
   })
 
   if (code) {
-    const supabase = await createClient()
+    // Cookieを収集するためにカスタムSupabaseクライアントを作成
+    // （NextResponse.redirect()にCookieを直接設定するため）
+    const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            pendingCookies.push(...cookiesToSet);
+          },
+        },
+      }
+    )
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    console.log('[Auth Callback] Exchange result:', {
+    console.log('[Auth Callback] Exchange:', {
       success: !error,
       error: error?.message,
-      hasSession: !!data?.session,
-      userId: data?.user?.id
+      userId: data?.user?.id,
+      pendingCookies: pendingCookies.length,
     })
 
     if (!error) {
       console.log('[Auth Callback] Redirecting to:', redirectUrl)
       const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+      
+      // Supabaseのセッションcookieをリダイレクトレスポンスに設定
+      pendingCookies.forEach(({ name, value, options }) => {
+        redirectResponse.cookies.set(name, value, options as any)
+      })
+      
       // oauth_redirect Cookieをクリア
       if (oauthRedirectCookie) {
         redirectResponse.cookies.delete('oauth_redirect');
@@ -52,11 +75,10 @@ export async function GET(request: NextRequest) {
       return redirectResponse
     }
     
-    console.error('[Auth Callback] Error exchanging code:', error)
+    console.error('[Auth Callback] Error:', error)
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  // return the user to an error page with instructions
   console.log('[Auth Callback] No code provided')
   return NextResponse.redirect(`${origin}/login?error=Could not authenticate user`)
 }
