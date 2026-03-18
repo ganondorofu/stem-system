@@ -3,19 +3,17 @@
  * 管理者のみアクセス可能
  */
 
-import { createClient, createOAuthClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OAuthClientList } from '@/components/dashboard/admin/OAuthClientList';
 import { OAuthClientForm } from '@/components/dashboard/admin/OAuthClientForm';
 
 async function getOAuthClients() {
-  const supabaseAdmin = await createOAuthClient();
+  const supabase = await createClient();
   
-  const { data: applications, error } = await supabaseAdmin
-    .schema('oauth').from('applications')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: applications, error } = await supabase
+    .rpc('list_applications');
 
   if (error) {
     console.error('Failed to fetch OAuth applications:', error);

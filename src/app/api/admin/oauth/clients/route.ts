@@ -3,7 +3,7 @@
  * POST: 新規クライアント作成
  */
 
-import { createClient, createOAuthClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { generateRandomString, hashClientSecret } from '@/lib/oauth';
 
@@ -43,30 +43,24 @@ export async function POST(request: Request) {
   const clientSecret = generateRandomString(48);
   const clientSecretHash = await hashClientSecret(clientSecret);
 
-  const supabaseOAuth = await createOAuthClient();
-  
-  // デバッグ: 環境変数の確認
-  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY length:', process.env.SUPABASE_SERVICE_ROLE_KEY?.length);
+  const supabase = await createClient();
 
-  // DBに保存
-  const { data: application, error } = await supabaseOAuth
-    .schema('oauth').from('applications')
-    .insert({
-      name,
-      client_id: clientId,
-      client_secret_hash: clientSecretHash,
-      redirect_uris,
-      created_by: user.id,
+  // RPC関数を使用してアプリケーションを作成
+  const { data: application, error } = await supabase
+    .rpc('create_application', {
+      p_name: name,
+      p_client_id: clientId,
+      p_client_secret_hash: clientSecretHash,
+      p_redirect_uris: redirect_uris,
+      p_created_by: user.id,
     })
-    .select()
     .single();
 
   if (error) {
     console.error('Failed to create OAuth client:', error);
     console.error('DEBUG: Full error details:', JSON.stringify(error, null, 2));
     return NextResponse.json(
-      { error: 'Failed to create client', debug: { hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY } },
+      { error: 'Failed to create client' },
       { status: 500 }
     );
   }

@@ -3,7 +3,7 @@
  * DELETE: クライアント削除
  */
 
-import { createClient, createOAuthClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(
@@ -30,15 +30,12 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const supabaseAdmin = await createOAuthClient();
 
-  // クライアントを削除
-  const { error } = await supabaseAdmin
-    .schema('oauth').from('applications')
-    .delete()
-    .eq('id', id);
+  // RPC関数を使用してクライアントを削除
+  const { data: deleted, error } = await supabase
+    .rpc('delete_application', { p_id: id });
 
-  if (error) {
+  if (error || !deleted) {
     console.error('Failed to delete OAuth client:', error);
     return NextResponse.json(
       { error: 'Failed to delete client' },
