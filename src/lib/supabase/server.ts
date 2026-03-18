@@ -52,3 +52,41 @@ export async function createClient() {
 export async function createAdminClient() {
   return await createSupabaseClient(true);
 }
+
+/**
+ * OAuth スキーマ用のクライアントを作成
+ * oauth.applications, oauth.authorization_codes, oauth.user_consents にアクセスする際に使用
+ */
+export async function createOAuthClient() {
+  const cookieStore = await cookies()
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined in .env');
+  }
+  
+  return createServerClient(supabaseUrl, supabaseKey, {
+    db: {
+      schema: 'oauth', // OAuth専用スキーマ
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {}
+      },
+    },
+  })
+}

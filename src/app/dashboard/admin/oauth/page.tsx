@@ -3,17 +3,17 @@
  * 管理者のみアクセス可能
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient, createOAuthClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OAuthClientList } from '@/components/dashboard/admin/OAuthClientList';
 import { OAuthClientForm } from '@/components/dashboard/admin/OAuthClientForm';
 
 async function getOAuthClients() {
-  const supabaseAdmin = await createAdminClient();
+  const supabaseAdmin = await createOAuthClient();
   
   const { data: applications, error } = await supabaseAdmin
-    .from('oauth.applications')
+    .from('applications')
     .select('*')
     .order('created_at', { ascending: false });
 

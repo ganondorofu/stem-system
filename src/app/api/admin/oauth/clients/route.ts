@@ -3,7 +3,7 @@
  * POST: 新規クライアント作成
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient, createOAuthClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { generateRandomString, hashClientSecret } from '@/lib/oauth';
 
@@ -43,11 +43,11 @@ export async function POST(request: Request) {
   const clientSecret = generateRandomString(48);
   const clientSecretHash = await hashClientSecret(clientSecret);
 
-  const supabaseAdmin = await createAdminClient();
+  const supabaseOAuth = await createOAuthClient();
 
   // DBに保存
-  const { data: application, error } = await supabaseAdmin
-    .from('oauth.applications')
+  const { data: application, error } = await supabaseOAuth
+    .from('applications')
     .insert({
       name,
       client_id: clientId,

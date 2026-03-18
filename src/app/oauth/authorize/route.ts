@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
   // クライアントアプリケーションを検証（Service Role で取得）
   const { data: application, error: appError } = await supabase
-    .from('oauth.applications')
+    .from('applications')
     .select('*')
     .eq('client_id', clientId)
     .single();
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 
   // 既に承認済みかチェック
   const { data: existingConsent } = await supabase
-    .from('oauth.user_consents')
+    .from('user_consents')
     .select('*')
     .eq('user_id', user.id)
     .eq('application_id', application.id)

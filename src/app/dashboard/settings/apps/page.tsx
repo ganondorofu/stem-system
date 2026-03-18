@@ -11,7 +11,7 @@ async function getUserConsents(userId: string) {
   const supabase = await createClient();
   
   const { data: consents, error } = await supabase
-    .from('oauth.user_consents')
+    .from('user_consents')
     .select(`
       id,
       scope,

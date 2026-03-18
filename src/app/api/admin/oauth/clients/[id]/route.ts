@@ -3,7 +3,7 @@
  * DELETE: クライアント削除
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient, createOAuthClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(
@@ -30,11 +30,11 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const supabaseAdmin = await createAdminClient();
+  const supabaseAdmin = await createOAuthClient();
 
   // クライアントを削除
   const { error } = await supabaseAdmin
-    .from('oauth.applications')
+    .from('applications')
     .delete()
     .eq('id', id);
 
