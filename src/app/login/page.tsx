@@ -17,12 +17,18 @@ function LoginPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const redirect = searchParams.get('redirect');
 
   const handleLogin = async () => {
+    // OAuth フローからのリダイレクトがある場合、auth/callback に next パラメータとして渡す
+    const callbackUrl = redirect
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`
+      : `${window.location.origin}/auth/callback`;
+
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     });
   };

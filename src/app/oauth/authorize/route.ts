@@ -50,12 +50,14 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   
   if (authError || !user) {
-    // 未ログインの場合：サーバー側でCookieにリダイレクト先を保存してログイン画面へ
+    // 未ログインの場合：ログイン画面へリダイレクト
+    // Cookie と query parameter の両方でリダイレクト先を保存（フォールバック対策）
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', request.url);
     const response = NextResponse.redirect(loginUrl, { status: 307 });
     response.cookies.set('oauth_redirect', request.url, {
       httpOnly: true,
-      secure: true,
+      secure: request.url.startsWith('https'),
       sameSite: 'lax',
       maxAge: 600,
       path: '/',

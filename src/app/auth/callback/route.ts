@@ -6,11 +6,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   
-  // OAuth リダイレクト先をCookieから取得（authorize routeが設定）
-  const oauthRedirectCookie = request.cookies.get('oauth_redirect')?.value;
-  const nextParam = searchParams.get('next');
-  const next = oauthRedirectCookie || nextParam || '/dashboard';
-
   // Get the actual origin from request headers (for proxy support)
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -18,7 +13,23 @@ export async function GET(request: NextRequest) {
   const protocol = forwardedProto || 'http';
   const origin = `${protocol}://${host}`;
 
-  // nextが絶対URLかどうか判定
+  // OAuth リダイレクト先をCookieまたはquery parameterから取得
+  // Cookie（httpOnly）は安全なのでそのまま使用
+  // query parameterはオープンリダイレクト防止のためパス部分のみ使用
+  const oauthRedirectCookie = request.cookies.get('oauth_redirect')?.value;
+  let nextParam = searchParams.get('next');
+
+  // query parameterのnextが絶対URLの場合、パス+クエリのみ抽出（セキュリティ対策）
+  if (nextParam) {
+    try {
+      const nextUrl = new URL(nextParam);
+      nextParam = `${nextUrl.pathname}${nextUrl.search}`;
+    } catch {
+      // 相対パスの場合はそのまま
+    }
+  }
+
+  const next = oauthRedirectCookie || nextParam || '/dashboard';
   const isAbsoluteUrl = next.startsWith('http://') || next.startsWith('https://');
   const redirectUrl = isAbsoluteUrl ? next : `${origin}${next}`;
 
