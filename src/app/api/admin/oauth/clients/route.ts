@@ -44,6 +44,10 @@ export async function POST(request: Request) {
   const clientSecretHash = await hashClientSecret(clientSecret);
 
   const supabaseOAuth = await createOAuthClient();
+  
+  // デバッグ: 環境変数の確認
+  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY length:', process.env.SUPABASE_SERVICE_ROLE_KEY?.length);
 
   // DBに保存
   const { data: application, error } = await supabaseOAuth
@@ -60,8 +64,9 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Failed to create OAuth client:', error);
+    console.error('DEBUG: Full error details:', JSON.stringify(error, null, 2));
     return NextResponse.json(
-      { error: 'Failed to create client' },
+      { error: 'Failed to create client', debug: { hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY } },
       { status: 500 }
     );
   }
