@@ -5,9 +5,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { handleConsent } from './actions';
+import { ConsentForm } from './consent-form';
 
 export default async function ConsentPage({
   searchParams,
@@ -72,27 +71,14 @@ export default async function ConsentPage({
             </p>
           )}
 
-          <form action={handleConsent} className="space-y-3">
-            <input type="hidden" name="client_id" value={clientId} />
-            <input type="hidden" name="redirect_uri" value={redirectUri} />
-            <input type="hidden" name="state" value={state} />
-            <input type="hidden" name="code_challenge" value={codeChallenge} />
-            <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />
-            <input type="hidden" name="scope" value={scope} />
-
-            <Button type="submit" name="action" value="approve" className="w-full">
-              承認する
-            </Button>
-            <Button 
-              type="submit" 
-              name="action" 
-              value="deny" 
-              variant="outline" 
-              className="w-full"
-            >
-              キャンセル
-            </Button>
-          </form>
+          <ConsentForm
+            clientId={clientId!}
+            redirectUri={redirectUri!}
+            state={state!}
+            codeChallenge={codeChallenge!}
+            codeChallengeMethod={codeChallengeMethod!}
+            scope={scope}
+          />
         </CardContent>
       </Card>
     </div>
