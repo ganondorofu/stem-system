@@ -5,7 +5,10 @@ import { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  // クエリパラメータまたはCookieからリダイレクト先を取得
+  const nextParam = searchParams.get('next');
+  const oauthRedirectCookie = request.cookies.get('oauth_redirect')?.value;
+  const next = nextParam || (oauthRedirectCookie ? decodeURIComponent(oauthRedirectCookie) : null) || '/dashboard';
 
   // Get the actual origin from request headers (for proxy support)
   const forwardedHost = request.headers.get('x-forwarded-host');
@@ -45,6 +48,10 @@ export async function GET(request: NextRequest) {
       console.log('[Auth Callback] User already authenticated, skipping exchange')
       const redirectResponse = NextResponse.redirect(redirectUrl, { status: 303 })
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+      // oauth_redirect Cookieをクリア
+      if (oauthRedirectCookie) {
+        redirectResponse.cookies.delete('oauth_redirect');
+      }
       return redirectResponse
     }
     
@@ -69,6 +76,10 @@ export async function GET(request: NextRequest) {
       redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
       redirectResponse.headers.set('Pragma', 'no-cache')
       redirectResponse.headers.set('Expires', '0')
+      // oauth_redirect Cookieをクリア
+      if (oauthRedirectCookie) {
+        redirectResponse.cookies.delete('oauth_redirect');
+      }
       
       return redirectResponse
     }

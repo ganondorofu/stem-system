@@ -20,15 +20,16 @@ function LoginPage() {
 
   const handleLogin = async () => {
     const redirectParam = searchParams.get('redirect');
-    // OAuth認可フローからのリダイレクトの場合、ログイン後にそのURLに戻す
-    const callbackUrl = redirectParam 
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectParam)}`
-      : `${window.location.origin}/auth/callback`;
+    // OAuth認可フローからのリダイレクトの場合、Cookieにリダイレクト先を保存
+    // (Supabase OAuthフロー中にクエリパラメータが失われるため)
+    if (redirectParam) {
+      document.cookie = `oauth_redirect=${encodeURIComponent(redirectParam)}; path=/; max-age=600; samesite=lax${window.location.protocol === 'https:' ? '; secure' : ''}`;
+    }
     
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: callbackUrl,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
   };
