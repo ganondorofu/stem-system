@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { handleConsent } from './actions';
 import { useFormStatus } from 'react-dom';
+import { Loader2 } from 'lucide-react';
 
 function SubmitButtons() {
   const { pending } = useFormStatus();
@@ -16,6 +17,7 @@ function SubmitButtons() {
         className="w-full"
         disabled={pending}
       >
+        {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {pending ? '処理中...' : '承認する'}
       </Button>
       <Button
