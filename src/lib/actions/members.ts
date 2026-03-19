@@ -269,9 +269,15 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     
     await ensureGenerationRoleExists(finalGeneration);
 
+    const discordUsername = user.user_metadata.user_name
+        || user.user_metadata.preferred_username
+        || user.identities?.find((i: any) => i.provider === 'discord')?.identity_data?.user_name
+        || null;
+
     const { error: memberInsertError, data: newMember } = await supabase.from('members').insert({
         supabase_auth_user_id: user.id,
         discord_uid: user.user_metadata.provider_id,
+        discord_username: discordUsername,
         avatar_url: user.user_metadata.avatar_url,
         is_admin: false,
         status,
