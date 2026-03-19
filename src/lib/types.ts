@@ -4,6 +4,7 @@ export type Member = {
   generation: number;
   student_number: string | null;
   discord_uid: string;
+  discord_username: string | null;
   is_admin: boolean;
   joined_at: string;
   deleted_at: string | null;

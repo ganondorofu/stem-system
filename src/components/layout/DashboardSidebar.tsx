@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Club, LogOut, User, Users, Shield, Home, Cog, KeyRound } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
-import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
@@ -22,14 +21,7 @@ const navItems = [
 export default function DashboardSidebar({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
-  const [displayName, setDisplayName] = useState(user?.raw_user_meta_data?.name);
-
-  useEffect(() => {
-    // This is just a fallback, the name should be in raw_user_meta_data
-    if (user && !displayName) {
-        setDisplayName(user.raw_user_meta_data?.name);
-    }
-  }, [user, displayName]);
+  const displayName = user?.discord_username || user?.raw_user_meta_data?.full_name || user?.raw_user_meta_data?.name || '名無しさん';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

@@ -71,7 +71,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const rawUsername = (user.raw_user_meta_data?.user_name || user.raw_user_meta_data?.name || '不明').split('#')[0];
+    const rawUsername = user.discord_username || user.raw_user_meta_data?.full_name || '不明';
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
 
     const onSubmit = async (data: ProfileFormValues) => {

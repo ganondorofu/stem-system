@@ -119,8 +119,7 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
       2: { label: "OB/OG", icon: GraduationCap }
   };
   const { label: statusLabel, icon: StatusIcon } = statusMap[member.status] || { label: "不明", icon: User };
-  const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
-  const discordUsername = rawUsername.split('#')[0];
+  const discordUsername = member.discord_username || member.raw_user_meta_data?.full_name || '不明';
 
 
   return (
@@ -733,8 +732,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const member = row.original as MemberWithTeamsAndRelations;
     const discordUid = member.discord_uid;
     
-    const rawUsername = member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '不明';
-    const discordUsername = rawUsername.split('#')[0];
+    const discordUsername = member.discord_username || member.raw_user_meta_data?.full_name || '不明';
 
     const realName = memberNames[discordUid];
 
@@ -881,7 +879,7 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const searchTerm = filterValue.toLowerCase();
     const member = row.original;
     
-    const discordUsername = (member.raw_user_meta_data?.user_name || member.raw_user_meta_data?.name || '').toLowerCase().split('#')[0];
+    const discordUsername = (member.discord_username || member.raw_user_meta_data?.full_name || '').toLowerCase();
     const discordUid = member.discord_uid.toLowerCase();
     const studentNumber = member.student_number || '';
     const email = member.email || '';

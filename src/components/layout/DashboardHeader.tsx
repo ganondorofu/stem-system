@@ -9,7 +9,6 @@ import type { FullUserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
-import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'マイプロフィール', icon: Home, admin: false },
@@ -21,14 +20,7 @@ const navItems = [
 export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
-  const [displayName, setDisplayName] = useState(user?.raw_user_meta_data?.name);
-
-  useEffect(() => {
-    // Client-side fetch might be needed if name isn't immediately available
-    if (user && !displayName) {
-        // Potentially fetch display name from a client-side action if needed
-    }
-  }, [user, displayName]);
+  const displayName = user?.discord_username || user?.raw_user_meta_data?.full_name || user?.raw_user_meta_data?.name || '名無しさん';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

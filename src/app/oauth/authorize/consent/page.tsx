@@ -33,7 +33,7 @@ export default async function ConsentPage({
   // ユーザー情報を取得
   const { data: member } = await supabase
     .from('members')
-    .select('display_name')
+    .select('discord_username')
     .eq('supabase_auth_user_id', user.id)
     .single();
 
@@ -50,7 +50,7 @@ export default async function ConsentPage({
           <div className="bg-muted p-4 rounded-lg">
             <p className="text-sm font-medium">ログイン中のユーザー</p>
             <p className="text-sm text-muted-foreground">
-              {member?.display_name || user.email}
+              {member?.discord_username || user.email}
             </p>
           </div>
 

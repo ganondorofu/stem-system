@@ -4,54 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { User } from '@supabase/supabase-js';
 import type { EnrichedMember } from '@/lib/types';
 
-
-async function getAllDiscordNames(): Promise<Map<string, string>> {
-    const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
-    const token = process.env.STEM_BOT_API_BEARER_TOKEN;
-    const nameMap = new Map<string, string>();
-
-    if (!apiUrl || !token) {
-        console.error('[getAllDiscordNames] API URL or Token is missing.');
-        return nameMap;
-    }
-
-    try {
-        const response = await fetch(`${apiUrl}/api/members`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-            cache: 'no-store',
-        });
-
-        if (!response.ok) {
-            console.error('[getAllDiscordNames] Failed to fetch members:', response.status);
-            return nameMap;
-        }
-
-        const json = await response.json();
-        const members = json.data ?? json;
-        if (Array.isArray(members)) {
-            for (const member of members) {
-                if (member.uid && member.name) {
-                    nameMap.set(member.uid, member.name);
-                }
-            }
-        }
-    } catch (error) {
-        console.error('[getAllDiscordNames] Error:', error);
-    }
-
-    return nameMap;
-}
-
 async function getTeamsData() {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
 
-    const [teamsRes, membersRes, relationsRes, leadersRes, discordNames] = await Promise.all([
+    const [teamsRes, membersRes, relationsRes, leadersRes] = await Promise.all([
         supabase.from('teams').select('*').order('name'),
-        supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid').is('deleted_at', null),
+        supabase.from('members').select('supabase_auth_user_id, generation, student_number, discord_uid, discord_username').is('deleted_at', null),
         supabase.from('member_team_relations').select('*'),
         supabase.from('team_leaders').select('*'),
-        getAllDiscordNames(),
     ]);
 
     if (teamsRes.error) console.error('Error fetching teams:', teamsRes.error);
@@ -73,8 +34,7 @@ async function getTeamsData() {
 
     const enrichedMembers: EnrichedMember[] = members.map((member) => {
         const user = users.find(u => u.id === member.supabase_auth_user_id);
-        const discordName = discordNames.get(member.discord_uid) || null;
-        const displayName = discordName || user?.user_metadata.name || '名前不明';
+        const displayName = member.discord_username || user?.user_metadata.full_name || '名前不明';
 
         return {
             ...member,
@@ -93,7 +53,7 @@ async function getTeamsData() {
 
 export default async function TeamManagementPage() {
     const data = await getTeamsData();
-    
+
     return (
         <Card>
             <CardHeader>
@@ -106,5 +66,3 @@ export default async function TeamManagementPage() {
         </Card>
     );
 }
-
-    
