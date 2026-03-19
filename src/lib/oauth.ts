@@ -13,7 +13,7 @@ const JWT_ISSUER = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // トークン有効期限
 export const TOKEN_EXPIRY = {
-  ACCESS_TOKEN: 60 * 60, // 1時間（秒）
+  ACCESS_TOKEN: 60 * 60 * 24 * 30, // 30日（秒）
   AUTHORIZATION_CODE: 60 * 10, // 10分（秒）
 };
 
