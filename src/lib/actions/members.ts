@@ -674,11 +674,11 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
         if (jhsError) throw new Error(`中学生の更新に失敗: ${jhsError.message}`);
         console.log(`[年度更新] 中学生に更新: ${jhsData?.length || 0}人`);
 
-        // Update OB/OG
+        // Update OB/OG (期が在籍中リストに含まれないメンバー)
         const { error: obError, data: obData } = await supabase
             .from('members')
             .update({ status: 2 }) // 2: OB/OG
-            .filter('generation', 'not.in', `(${allStudentGenerations.join(',')})`)
+            .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
             .is('deleted_at', null)
             .select();
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
