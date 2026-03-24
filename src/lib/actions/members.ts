@@ -641,6 +641,10 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
         const allStudentGenerations = [...highSchoolGenerations, ...juniorHighSchoolGenerations];
 
+        console.log('[年度更新] 高校生の期:', highSchoolGenerations);
+        console.log('[年度更新] 中学生の期:', juniorHighSchoolGenerations);
+        console.log('[年度更新] 在籍中の期（全）:', allStudentGenerations);
+
         // Get count before update for better message
         const { count: totalMembers, error: countError } = await supabase
             .from('members')
@@ -651,25 +655,34 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
 
         // Update High School Students
-        const { error: hsError } = await supabase
+        const { error: hsError, count: hsCount } = await supabase
             .from('members')
             .update({ status: 1 }) // 1: High School
-            .in('generation', highSchoolGenerations);
+            .in('generation', highSchoolGenerations)
+            .is('deleted_at', null)
+            .select('*', { count: 'exact', head: true });
         if (hsError) throw new Error(`高校生の更新に失敗: ${hsError.message}`);
+        console.log(`[年度更新] 高校生に更新: ${hsCount}人`);
 
         // Update Junior High School Students
-        const { error: jhsError } = await supabase
+        const { error: jhsError, count: jhsCount } = await supabase
             .from('members')
             .update({ status: 0 }) // 0: Junior High
-            .in('generation', juniorHighSchoolGenerations);
+            .in('generation', juniorHighSchoolGenerations)
+            .is('deleted_at', null)
+            .select('*', { count: 'exact', head: true });
         if (jhsError) throw new Error(`中学生の更新に失敗: ${jhsError.message}`);
+        console.log(`[年度更新] 中学生に更新: ${jhsCount}人`);
 
         // Update OB/OG
-        const { error: obError } = await supabase
+        const { error: obError, count: obCount } = await supabase
             .from('members')
             .update({ status: 2 }) // 2: OB/OG
-            .not('generation', 'in', `(${allStudentGenerations.join(',')})`);
+            .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
+            .is('deleted_at', null)
+            .select('*', { count: 'exact', head: true });
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
+        console.log(`[年度更新] OB/OGに更新: ${obCount}人`);
 
         // Re-sync all members' roles
         await syncAllDiscordRoles();
