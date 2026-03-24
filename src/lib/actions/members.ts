@@ -678,7 +678,7 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
         const { error: obError, data: obData } = await supabase
             .from('members')
             .update({ status: 2 }) // 2: OB/OG
-            .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
+            .not('generation', 'in', allStudentGenerations)
             .is('deleted_at', null)
             .select();
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
