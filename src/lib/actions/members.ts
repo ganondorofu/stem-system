@@ -660,7 +660,7 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
             .update({ status: 1 }) // 1: High School
             .in('generation', highSchoolGenerations)
             .is('deleted_at', null)
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact' });
         if (hsError) throw new Error(`高校生の更新に失敗: ${hsError.message}`);
         console.log(`[年度更新] 高校生に更新: ${hsCount}人`);
 
@@ -670,7 +670,7 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
             .update({ status: 0 }) // 0: Junior High
             .in('generation', juniorHighSchoolGenerations)
             .is('deleted_at', null)
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact' });
         if (jhsError) throw new Error(`中学生の更新に失敗: ${jhsError.message}`);
         console.log(`[年度更新] 中学生に更新: ${jhsCount}人`);
 
@@ -680,7 +680,7 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
             .update({ status: 2 }) // 2: OB/OG
             .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
             .is('deleted_at', null)
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact' });
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
         console.log(`[年度更新] OB/OGに更新: ${obCount}人`);
 
