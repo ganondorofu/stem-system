@@ -681,8 +681,11 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
             .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
             .is('deleted_at', null)
             .select();
-        if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
-        console.log(`[年度更新] OB/OGに更新: ${obData?.length || 0}人`);
+        if (obError) {
+            console.error('[年度更新] OB/OG更新エラー:', obError);
+            throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
+        }
+        console.log(`[年度更新] OB/OGに更新: ${obData?.length || 0}人`, obData);
 
         // Re-sync all members' roles
         await syncAllDiscordRoles();
