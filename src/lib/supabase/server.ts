@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 // DO NOT CHANGE THE SCHEMA NAME. IT IS 'member' AND SHOULD NOT BE MODIFIED.
@@ -50,5 +51,25 @@ export async function createClient() {
 }
 
 export async function createAdminClient() {
-  return await createSupabaseClient(true);
+  // service_roleクライアントはcookieベースのSSRクライアントを使わない。
+  // createServerClient (SSR) はcookieからユーザーJWTを読み込み、
+  // Authorization headerを上書きするため、RLSがauthenticatedロールで評価され
+  // UPDATE/DELETE等が静かに0行返る問題がある。
+  // @supabase/supabase-jsのcreateClientを直接使用してRLSをバイパスする。
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined in .env');
+  }
+  return createSupabaseJsClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      db: {
+        schema: 'member', // DO NOT CHANGE THIS VALUE.
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
 }
