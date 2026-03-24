@@ -655,34 +655,34 @@ export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGenera
 
 
         // Update High School Students
-        const { error: hsError, count: hsCount } = await supabase
+        const { error: hsError, data: hsData } = await supabase
             .from('members')
             .update({ status: 1 }) // 1: High School
             .in('generation', highSchoolGenerations)
             .is('deleted_at', null)
-            .select('*', { count: 'exact' });
+            .select();
         if (hsError) throw new Error(`高校生の更新に失敗: ${hsError.message}`);
-        console.log(`[年度更新] 高校生に更新: ${hsCount}人`);
+        console.log(`[年度更新] 高校生に更新: ${hsData?.length || 0}人`);
 
         // Update Junior High School Students
-        const { error: jhsError, count: jhsCount } = await supabase
+        const { error: jhsError, data: jhsData } = await supabase
             .from('members')
             .update({ status: 0 }) // 0: Junior High
             .in('generation', juniorHighSchoolGenerations)
             .is('deleted_at', null)
-            .select('*', { count: 'exact' });
+            .select();
         if (jhsError) throw new Error(`中学生の更新に失敗: ${jhsError.message}`);
-        console.log(`[年度更新] 中学生に更新: ${jhsCount}人`);
+        console.log(`[年度更新] 中学生に更新: ${jhsData?.length || 0}人`);
 
         // Update OB/OG
-        const { error: obError, count: obCount } = await supabase
+        const { error: obError, data: obData } = await supabase
             .from('members')
             .update({ status: 2 }) // 2: OB/OG
             .not('generation', 'in', `(${allStudentGenerations.join(',')})`)
             .is('deleted_at', null)
-            .select('*', { count: 'exact' });
+            .select();
         if (obError) throw new Error(`OB/OGの更新に失敗: ${obError.message}`);
-        console.log(`[年度更新] OB/OGに更新: ${obCount}人`);
+        console.log(`[年度更新] OB/OGに更新: ${obData?.length || 0}人`);
 
         // Re-sync all members' roles
         await syncAllDiscordRoles();
