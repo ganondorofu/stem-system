@@ -56,6 +56,22 @@ jobs:
           git commit -m "backup: $FILENAME"
           git push
 
+      - name: Delete backups older than 7 days
+        env:
+          GH_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+          BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+        run: |
+          CUTOFF=$(date -u -d '7 days ago' +%Y-%m-%dT%H-%M-%SZ)
+          FILES=$(gh api "repos/${BACKUP_REPO}/contents" --jq '.[].name' 2>/dev/null || true)
+          for FILE in $FILES; do
+            if [[ "$FILE" < "$CUTOFF" ]]; then
+              SHA=$(gh api "repos/${BACKUP_REPO}/contents/${FILE}" --jq '.sha')
+              gh api --method DELETE "repos/${BACKUP_REPO}/contents/${FILE}" \
+                --field message="cleanup: $FILE" \
+                --field sha="$SHA" || true
+            fi
+          done
+
       - name: Cleanup
         if: always()
         run: rm -f backup.dump backup.dump.gpg
