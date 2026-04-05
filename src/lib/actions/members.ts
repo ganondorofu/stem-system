@@ -374,6 +374,7 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
 
 export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema>) {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -384,10 +385,10 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
     if (!parsedData.success) {
         return { error: '無効なデータが提供されました。' };
     }
-    
+
     const { student_number } = parsedData.data;
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('members')
         .update({ student_number })
         .eq('supabase_auth_user_id', user.id);
@@ -396,9 +397,9 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
         console.error('Error updating profile:', error);
         return { error: 'プロフィールの更新に失敗しました。もう一度お試しください。' };
     }
-    
-    const {data: member} = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
-    if(member){
+
+    const { data: member } = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
+    if (member) {
         await syncDiscordRoles(member.discord_uid);
     }
 
