@@ -112,6 +112,21 @@ async function syncDiscordRoles(discordUid: string) {
     }
 }
 
+/**
+ * Discord ニックネームをフォーマットする。
+ * 在校生: 名前(学籍番号)  卒業生: 名前(第n期卒業生)
+ */
+function formatDiscordNickname(name: string, status: number, generation: number, studentNumber: string | null): string {
+    if (status === 2) {
+        // OB/OG
+        return `${name}(第${generation}期卒業生)`;
+    }
+    if (studentNumber) {
+        return `${name}(${studentNumber})`;
+    }
+    return name;
+}
+
 async function syncDiscordNickname(discordUid: string, name: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
@@ -308,7 +323,8 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    await syncDiscordNickname(user.user_metadata.provider_id, fullName);
+    const nickname = formatDiscordNickname(fullName, status, finalGeneration!, student_number ?? null);
+    await syncDiscordNickname(user.user_metadata.provider_id, nickname);
     await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
@@ -364,7 +380,8 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
     }
 
     // Re-sync Discord nickname and roles
-    await syncDiscordNickname(discordUid, fullName);
+    const nickname = formatDiscordNickname(fullName, memberProfile.status, memberProfile.generation, memberProfile.student_number ?? null);
+    await syncDiscordNickname(discordUid, nickname);
     await syncDiscordRoles(discordUid);
 
     revalidatePath('/dashboard', 'layout');
@@ -398,10 +415,18 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
         return { error: 'プロフィールの更新に失敗しました。もう一度お試しください。' };
     }
 
-    const { data: member } = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
-    if (member) {
+    const { data: member } = await supabase
+        .from("members")
+        .select("discord_uid, generation, status")
+        .eq("supabase_auth_user_id", user.id)
+        .single();
+
+    if (member?.discord_uid) {
         const realName = await getMemberDisplayName(member.discord_uid);
-        if (realName) await syncDiscordNickname(member.discord_uid, realName);
+        if (realName) {
+            const nickname = formatDiscordNickname(realName, member.status, member.generation, student_number ?? null);
+            await syncDiscordNickname(member.discord_uid, nickname);
+        }
         await syncDiscordRoles(member.discord_uid);
     }
 
@@ -462,8 +487,10 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
         }
 
         // 4. Sync with Discord
-        await syncDiscordNickname(userToUpdate.user.user_metadata.provider_id, fullName);
-        await syncDiscordRoles(userToUpdate.user.user_metadata.provider_id);
+        const discordUid = userToUpdate.user.user_metadata.provider_id;
+        const nickname = formatDiscordNickname(fullName, status, generation, student_number ?? null);
+        await syncDiscordNickname(discordUid, nickname);
+        await syncDiscordRoles(discordUid);
 
         revalidatePath('/dashboard/admin/members');
         return { error: null };
@@ -710,7 +737,7 @@ export async function renameGraduatesToNewFormat(): Promise<{ error: string | nu
 
         const { data: obMembers, error: fetchError } = await supabase
             .from('members')
-            .select('supabase_auth_user_id, discord_uid')
+            .select('supabase_auth_user_id, discord_uid, generation, status, student_number')
             .eq('status', 2)
             .is('deleted_at', null)
             .not('discord_uid', 'is', null);
@@ -737,7 +764,8 @@ export async function renameGraduatesToNewFormat(): Promise<{ error: string | nu
                 console.error(`[renameGraduates] Skipping ${member.discord_uid}: 本名(last_name/first_name)が取得できません。`);
                 continue;
             }
-            await syncDiscordNickname(member.discord_uid, fullName);
+            const nickname = formatDiscordNickname(fullName, member.status, member.generation, member.student_number ?? null);
+            await syncDiscordNickname(member.discord_uid, nickname);
             successCount++;
         }
 

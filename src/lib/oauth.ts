@@ -7,10 +7,13 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
-// 環境変数から JWT シークレットキーを取得（必須）
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required. Set it before starting the server.');
+// JWT シークレットキーを遅延取得（ビルド時にはまだ未設定の場合がある）
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required. Set it before starting the server.');
+  }
+  return secret;
 }
 const JWT_ISSUER = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -90,7 +93,7 @@ export function generateAccessToken(
       iat: now,
       exp: now + TOKEN_EXPIRY.ACCESS_TOKEN,
     },
-    JWT_SECRET,
+    getJwtSecret(),
     { algorithm: 'HS256' }
   );
 }
@@ -100,7 +103,7 @@ export function generateAccessToken(
  */
 export function verifyAccessToken(token: string, clientId?: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    const decoded = jwt.verify(token, getJwtSecret(), {
       algorithms: ['HS256'],
       issuer: JWT_ISSUER,
       audience: clientId,
