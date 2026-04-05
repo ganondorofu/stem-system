@@ -1,7 +1,7 @@
 
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { Team } from '../types';
@@ -119,22 +119,23 @@ export async function updateTeamLeaders(teamId: string, memberIds: string[]): Pr
     try {
         await checkAdmin();
         const supabase = await createClient();
+        const supabaseAdmin = await createAdminClient();
 
         // Find old leaders to sync their roles later
-        const { data: oldLeadersData, error: oldLeadersError } = await supabase.from('team_leaders')
+        const { data: oldLeadersData, error: oldLeadersError } = await supabaseAdmin.from('team_leaders')
             .select('member_id')
             .eq('team_id', teamId);
-        
+
         if (oldLeadersError) throw oldLeadersError;
-        
+
         const oldLeaderIds = oldLeadersData.map(l => l.member_id);
 
-        const { error: deleteError } = await supabase.from('team_leaders').delete().eq('team_id', teamId);
+        const { error: deleteError } = await supabaseAdmin.from('team_leaders').delete().eq('team_id', teamId);
         if (deleteError) throw deleteError;
 
         if (memberIds.length > 0) {
             const newLeaders = memberIds.map(member_id => ({ team_id: teamId, member_id }));
-            const { error: insertError } = await supabase.from('team_leaders').insert(newLeaders);
+            const { error: insertError } = await supabaseAdmin.from('team_leaders').insert(newLeaders);
             if (insertError) throw insertError;
         }
 
