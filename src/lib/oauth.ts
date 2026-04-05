@@ -7,8 +7,11 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
-// 環境変数から JWT シークレットキーを取得
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// 環境変数から JWT シークレットキーを取得（必須）
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required. Set it before starting the server.');
+}
 const JWT_ISSUER = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // トークン有効期限
