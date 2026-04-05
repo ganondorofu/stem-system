@@ -147,6 +147,11 @@ async function syncDiscordNickname(discordUid: string, name: string) {
 }
 
 export async function getMemberDisplayName(discordUid: string): Promise<string | null> {
+    // 認証チェック
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
@@ -180,6 +185,11 @@ export async function getMemberDisplayName(discordUid: string): Promise<string |
 type MemberNameMap = { [key: string]: string };
 
 export async function getAllMemberNames(): Promise<MemberNameMap | null> {
+    // 認証チェック
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
 
@@ -474,7 +484,15 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 }
 
 
+const toggleAdminSchema = z.object({
+    userId: z.string().uuid(),
+    currentStatus: z.boolean(),
+});
+
 export async function toggleAdminStatus(userId: string, currentStatus: boolean) {
+    const parsed = toggleAdminSchema.safeParse({ userId, currentStatus });
+    if (!parsed.success) return { error: '無効なパラメータです。' };
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -504,7 +522,14 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
     return { error: null };
 }
 
+const deleteMemberSchema = z.object({
+    userId: z.string().uuid(),
+});
+
 export async function deleteMember(userId: string) {
+    const parsed = deleteMemberSchema.safeParse({ userId });
+    if (!parsed.success) return { error: '無効なユーザーIDです。' };
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -534,7 +559,15 @@ export async function deleteMember(userId: string) {
     return { error: null };
 }
 
+const updateMemberTeamsSchema = z.object({
+    memberId: z.string().uuid(),
+    teamIds: z.array(z.string().uuid()),
+});
+
 export async function updateMemberTeams(memberId: string, teamIds: string[]): Promise<{ error: string | null }> {
+    const parsed = updateMemberTeamsSchema.safeParse({ memberId, teamIds });
+    if (!parsed.success) return { error: '無効なパラメータです。' };
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: '認証が必要です。' };
@@ -621,10 +654,15 @@ export async function syncAllDiscordRoles(): Promise<{ error: string | null, mes
     }
 }
     
+const updateStatusesSchema = z.object({
+    highSchoolFirstYearGeneration: z.number().int().positive(),
+});
+
 export async function updateStatusesForNewAcademicYear(highSchoolFirstYearGeneration: number): Promise<{ error: string | null, message: string }> {
     try {
         await checkAdmin();
-        if (!highSchoolFirstYearGeneration || highSchoolFirstYearGeneration <= 0) {
+        const parsed = updateStatusesSchema.safeParse({ highSchoolFirstYearGeneration });
+        if (!parsed.success) {
             return { error: '有効な期数を指定してください。', message: '' };
         }
 

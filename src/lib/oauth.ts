@@ -8,8 +8,29 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 // 環境変数から JWT シークレットキーを取得
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 const JWT_ISSUER = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// 許可されるOAuthスコープ
+const ALLOWED_SCOPES = ['openid', 'profile'] as const;
+type AllowedScope = typeof ALLOWED_SCOPES[number];
+
+/**
+ * スコープ文字列を検証し、許可されたスコープのみを返す
+ */
+export function validateScope(scope: string): string {
+  const requested = scope.split(' ').filter(Boolean);
+  const valid = requested.filter((s): s is AllowedScope =>
+    (ALLOWED_SCOPES as readonly string[]).includes(s)
+  );
+  if (valid.length === 0) {
+    return 'openid profile';
+  }
+  return [...new Set(valid)].join(' ');
+}
 
 // トークン有効期限
 export const TOKEN_EXPIRY = {
