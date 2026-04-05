@@ -46,7 +46,11 @@ async function callCreateGenerationApi(generation: number): Promise<GenerationRo
 
 
 export async function ensureGenerationRoleExists(generation: number): Promise<void> {
+    // 認証チェック — 未認証ユーザーからの呼び出しを防止
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required.');
+
     const { data: existingRole } = await supabase
         .from('generation_roles')
         .select('generation')
