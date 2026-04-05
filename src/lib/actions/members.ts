@@ -422,9 +422,10 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
         .single();
 
     if (member?.discord_uid) {
-        const realName = await getMemberDisplayName(member.discord_uid);
-        if (realName) {
-            const nickname = formatDiscordNickname(realName, member.status, member.generation, student_number ?? null);
+        // 本名はuser_metadataから取得（Bot APIのニックネームだと二重フォーマットの恐れ）
+        const fullName = ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
+        if (fullName) {
+            const nickname = formatDiscordNickname(fullName, member.status, member.generation, student_number ?? null);
             await syncDiscordNickname(member.discord_uid, nickname);
         }
         await syncDiscordRoles(member.discord_uid);
