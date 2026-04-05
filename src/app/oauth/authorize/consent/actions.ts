@@ -6,33 +6,44 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 import {
   generateRandomString,
   getAuthCodeExpiry,
   redirectWithError,
   createOAuthError,
+  isValidRedirectUri,
+  validateScope,
 } from '@/lib/oauth';
 
+const consentFormSchema = z.object({
+  action: z.enum(['approve', 'deny']),
+  client_id: z.string().min(1),
+  redirect_uri: z.string().url(),
+  state: z.string(),
+  code_challenge: z.string().min(1),
+  code_challenge_method: z.literal('S256'),
+  scope: z.string().min(1),
+});
+
 export async function handleConsent(formData: FormData) {
-  const action = formData.get('action') as string;
-  const clientId = formData.get('client_id') as string;
-  const redirectUri = formData.get('redirect_uri') as string;
-  const state = formData.get('state') as string;
-  const codeChallenge = formData.get('code_challenge') as string;
-  const codeChallengeMethod = formData.get('code_challenge_method') as string;
-  const scope = formData.get('scope') as string;
+  const parsed = consentFormSchema.safeParse({
+    action: formData.get('action'),
+    client_id: formData.get('client_id'),
+    redirect_uri: formData.get('redirect_uri'),
+    state: formData.get('state'),
+    code_challenge: formData.get('code_challenge'),
+    code_challenge_method: formData.get('code_challenge_method'),
+    scope: formData.get('scope'),
+  });
+
+  if (!parsed.success) {
+    redirect('/login?error=invalid_request');
+  }
+
+  const { action, client_id: clientId, redirect_uri: redirectUri, state, code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod, scope } = parsed.data;
 
   console.log('[OAuth Consent] Action:', action, 'clientId:', clientId, 'redirectUri:', redirectUri);
-
-  // ユーザーが拒否した場合
-  if (action === 'deny') {
-    const errorUrl = redirectWithError(
-      redirectUri,
-      createOAuthError('access_denied', 'User denied the request'),
-      state
-    );
-    redirect(errorUrl);
-  }
 
   let finalRedirectUrl: string;
 
@@ -46,7 +57,7 @@ export async function handleConsent(formData: FormData) {
       redirect('/login');
     }
 
-    // クライアントアプリケーションを取得（RPC経由）
+    // クライアントアプリケーションを取得（RPC経由） — deny の前に取得して redirect_uri を検証
     const { data: applications, error: appError } = await supabase
       .rpc('get_application_by_client_id', { p_client_id: clientId });
 
@@ -55,9 +66,23 @@ export async function handleConsent(formData: FormData) {
     const application = applications?.[0];
 
     if (!application) {
+      redirect('/login?error=invalid_client');
+    }
+
+    // redirect_uri が登録済みの許可リストに含まれているか検証
+    const allowedUris: string[] = application.redirect_uris || [];
+    if (!isValidRedirectUri(redirectUri, allowedUris)) {
+      redirect('/login?error=invalid_redirect_uri');
+    }
+
+    // スコープを検証（許可されたスコープのみに制限）
+    const validatedScope = validateScope(scope);
+
+    // ユーザーが拒否した場合（アプリ検証後に処理）
+    if (action === 'deny') {
       const errorUrl = redirectWithError(
         redirectUri,
-        createOAuthError('invalid_client'),
+        createOAuthError('access_denied', 'User denied the request'),
         state
       );
       redirect(errorUrl);
@@ -68,7 +93,7 @@ export async function handleConsent(formData: FormData) {
       .rpc('create_user_consent', {
         p_user_id: user.id,
         p_application_id: application.id,
-        p_scope: scope,
+        p_scope: validatedScope,
       });
 
     console.log('[OAuth Consent] createConsent:', { error: consentError?.message });
@@ -86,7 +111,7 @@ export async function handleConsent(formData: FormData) {
         p_redirect_uri: redirectUri,
         p_code_challenge: codeChallenge,
         p_code_challenge_method: codeChallengeMethod,
-        p_scope: scope,
+        p_scope: validatedScope,
         p_expires_at: expiresAt.toISOString(),
       });
 

@@ -99,8 +99,15 @@ export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ 
     }
 }
 
+const deleteTeamSchema = z.object({
+    teamId: z.string().uuid(),
+});
+
 export async function deleteTeam(teamId: string): Promise<{ error: string | null }> {
     try {
+        const parsed = deleteTeamSchema.safeParse({ teamId });
+        if (!parsed.success) return { error: '無効なチームIDです。' };
+
         await checkAdmin();
         const supabaseAdmin = await createAdminClient();
 
@@ -115,8 +122,16 @@ export async function deleteTeam(teamId: string): Promise<{ error: string | null
 }
 
 
+const updateTeamLeadersSchema = z.object({
+    teamId: z.string().uuid(),
+    memberIds: z.array(z.string().uuid()),
+});
+
 export async function updateTeamLeaders(teamId: string, memberIds: string[]): Promise<{ error: string | null }> {
     try {
+        const parsed = updateTeamLeadersSchema.safeParse({ teamId, memberIds });
+        if (!parsed.success) return { error: '無効なパラメータです。' };
+
         await checkAdmin();
         const supabase = await createClient();
         const supabaseAdmin = await createAdminClient();
