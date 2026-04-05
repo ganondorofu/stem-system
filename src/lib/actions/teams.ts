@@ -54,20 +54,20 @@ async function syncDiscordRoles(discordUid: string) {
 export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ error: string | null, team: Team | null }> {
     try {
         await checkAdmin();
-        const supabase = await createClient();
+        const supabaseAdmin = await createAdminClient();
         const parsedData = teamSchema.safeParse(values);
         if (!parsedData.success) return { error: '無効なデータです。', team: null };
 
         const { name, discord_role_id } = parsedData.data;
 
-        const { data: newTeam, error } = await supabase
+        const { data: newTeam, error } = await supabaseAdmin
             .from('teams')
             .insert({ name, discord_role_id })
             .select()
             .single();
 
         if (error) throw error;
-        
+
         revalidatePath('/dashboard/admin/teams');
         return { error: null, team: newTeam };
     } catch (e: any) {
@@ -76,14 +76,14 @@ export async function createTeam(values: z.infer<typeof teamSchema>): Promise<{ 
 }
 
 export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ error: string | null, team: Team | null }> {
-     try {
+    try {
         await checkAdmin();
-        const supabase = await createClient();
+        const supabaseAdmin = await createAdminClient();
         const parsedData = teamSchema.safeParse(values);
         if (!parsedData.success || !parsedData.data.id) return { error: '無効なデータです。', team: null };
 
         const { id, name, discord_role_id } = parsedData.data;
-        const { data: updatedTeam, error } = await supabase
+        const { data: updatedTeam, error } = await supabaseAdmin
             .from('teams')
             .update({ name, discord_role_id })
             .eq('id', id)
@@ -102,11 +102,11 @@ export async function updateTeam(values: z.infer<typeof teamSchema>): Promise<{ 
 export async function deleteTeam(teamId: string): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
-        const supabase = await createClient();
-        
-        const { error } = await supabase.from('teams').delete().eq('id', teamId);
+        const supabaseAdmin = await createAdminClient();
+
+        const { error } = await supabaseAdmin.from('teams').delete().eq('id', teamId);
         if (error) throw error;
-        
+
         revalidatePath('/dashboard/admin/teams');
         return { error: null };
     } catch (e: any) {

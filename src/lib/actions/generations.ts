@@ -1,7 +1,7 @@
 
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { GenerationRole } from '../types';
 
@@ -101,20 +101,20 @@ export async function createGenerationRole(generation: number): Promise<{ error:
 export async function updateGenerationRoles(roles: GenerationRole[]): Promise<{ error: string | null }> {
     try {
         await checkAdmin();
-        const supabase = await createClient();
+        const supabaseAdmin = await createAdminClient();
 
         // Use a transaction to update all roles
         // First delete all existing roles, then insert the new ones.
         // This is simpler than upserting for this use case.
-        
-        const { error: deleteError } = await supabase.from('generation_roles').delete().neq('generation', -1); // delete all
+
+        const { error: deleteError } = await supabaseAdmin.from('generation_roles').delete().neq('generation', -1); // delete all
         if (deleteError) throw deleteError;
-        
+
         // Filter out any rows that might be empty from the UI
         const validRoles = roles.filter(r => r.generation >= 0 && String(r.discord_role_id).trim() !== '');
 
         if (validRoles.length > 0) {
-            const { error: insertError } = await supabase.from('generation_roles').insert(validRoles);
+            const { error: insertError } = await supabaseAdmin.from('generation_roles').insert(validRoles);
             if (insertError) throw insertError;
         }
 
