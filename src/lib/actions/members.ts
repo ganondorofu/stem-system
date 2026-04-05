@@ -400,8 +400,9 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
 
     const { data: member } = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
     if (member) {
-        const fullName = user.user_metadata.name || '';
-        await syncDiscordNickname(member.discord_uid, fullName);
+        const fullName = user.user_metadata.name ||
+            ((user.user_metadata.last_name || '') + (user.user_metadata.first_name || '')).replace(/\s/g, '');
+        if (fullName) await syncDiscordNickname(member.discord_uid, fullName);
         await syncDiscordRoles(member.discord_uid);
     }
 
