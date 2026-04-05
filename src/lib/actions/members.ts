@@ -400,9 +400,10 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
 
     const { data: member } = await supabase.from("members").select("discord_uid").eq("supabase_auth_user_id", user.id).single();
     if (member) {
+        const fullName = user.user_metadata.name || '';
+        await syncDiscordNickname(member.discord_uid, fullName);
         await syncDiscordRoles(member.discord_uid);
     }
-
 
     revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard/admin/members');
