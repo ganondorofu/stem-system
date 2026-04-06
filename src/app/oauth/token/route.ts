@@ -79,6 +79,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // 即座にコードを削除して再利用を防止（TOCTOU対策）
+  await supabase.rpc('delete_authorization_code', { p_code: code });
+
   // 認可コードの検証
   if (authCode.application_id !== application.id) {
     return NextResponse.json(
@@ -96,10 +99,6 @@ export async function POST(request: Request) {
 
   // 有効期限チェック
   if (new Date(authCode.expires_at) < new Date()) {
-    // 期限切れコードを削除（RPC経由）
-    await supabase
-      .rpc('delete_authorization_code', { p_code: code });
-
     return NextResponse.json(
       createOAuthError('invalid_grant', 'Authorization code expired'),
       { status: 400 }
@@ -146,10 +145,6 @@ export async function POST(request: Request) {
     },
     clientId
   );
-
-  // 使用済みコードを削除（RPC経由）
-  await supabase
-    .rpc('delete_authorization_code', { p_code: code });
 
   // トークンレスポンスを返す
   return NextResponse.json({
