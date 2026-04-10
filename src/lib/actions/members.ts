@@ -286,7 +286,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
     const discordUsername = user.user_metadata.full_name || null;
 
-    const { error: memberInsertError, data: newMember } = await supabase.from('members').insert({
+    const { error: memberInsertError, data: newMember } = await supabaseAdmin.from('members').insert({
         supabase_auth_user_id: user.id,
         discord_uid: user.user_metadata.provider_id,
         discord_username: discordUsername,
@@ -317,7 +317,7 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
             member_id: newMember.supabase_auth_user_id,
             team_id: team_id
         }));
-        const { error: relationError } = await supabase.from('member_team_relations').insert(relations);
+        const { error: relationError } = await supabaseAdmin.from('member_team_relations').insert(relations);
         if (relationError) {
             console.error('Error creating member-team relations:', relationError);
         }
@@ -465,14 +465,14 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 
         // 2. Update member table (generation, status, student_number)
         await ensureGenerationRoleExists(generation);
-        const { error: memberUpdateError } = await supabase
+        const { error: memberUpdateError } = await supabaseAdmin
             .from('members')
             .update({ generation, student_number, status })
             .eq('supabase_auth_user_id', userId);
         if (memberUpdateError) throw new Error(`メンバーテーブルの更新に失敗: ${memberUpdateError.message}`);
         
         // 3. Update team relations
-        const { error: deleteTeamsError } = await supabase
+        const { error: deleteTeamsError } = await supabaseAdmin
             .from('member_team_relations')
             .delete()
             .eq('member_id', userId);
@@ -483,7 +483,7 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
                 member_id: userId,
                 team_id: team_id,
             }));
-            const { error: insertTeamsError } = await supabase.from('member_team_relations').insert(newRelations);
+            const { error: insertTeamsError } = await supabaseAdmin.from('member_team_relations').insert(newRelations);
             if (insertTeamsError) throw new Error(`所属班の更新に失敗: ${insertTeamsError.message}`);
         }
 
@@ -504,6 +504,7 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 
 export async function toggleAdminStatus(userId: string, currentStatus: boolean) {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -519,7 +520,7 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
         return { error: "自身の管理者ステータスは変更できません。" };
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('members')
         .update({ is_admin: !currentStatus })
         .eq('supabase_auth_user_id', userId);
@@ -534,6 +535,7 @@ export async function toggleAdminStatus(userId: string, currentStatus: boolean) 
 
 export async function deleteMember(userId: string) {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -549,7 +551,7 @@ export async function deleteMember(userId: string) {
         return { error: "自分自身を削除することはできません。" };
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('members')
         .update({ deleted_at: new Date().toISOString() })
         .eq('supabase_auth_user_id', userId);
@@ -564,6 +566,7 @@ export async function deleteMember(userId: string) {
 
 export async function updateMemberTeams(memberId: string, teamIds: string[]): Promise<{ error: string | null }> {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: '認証が必要です。' };
 
@@ -571,7 +574,7 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
     if (!admin?.is_admin) return { error: '管理者権限が必要です。' };
 
     try {
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseAdmin
             .from('member_team_relations')
             .delete()
             .eq('member_id', memberId);
@@ -583,7 +586,7 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
                 member_id: memberId,
                 team_id: teamId,
             }));
-            const { error: insertError } = await supabase
+            const { error: insertError } = await supabaseAdmin
                 .from('member_team_relations')
                 .insert(newRelations);
             

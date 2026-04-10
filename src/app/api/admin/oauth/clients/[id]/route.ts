@@ -3,7 +3,7 @@
  * DELETE: クライアント削除
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(
@@ -11,6 +11,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const supabaseAdmin = await createAdminClient();
   
   // 管理者チェック
   const { data: { user } } = await supabase.auth.getUser();
@@ -32,7 +33,7 @@ export async function DELETE(
   const { id } = await params;
 
   // RPC関数を使用してクライアントを削除
-  const { data: deleted, error } = await supabase
+  const { data: deleted, error } = await supabaseAdmin
     .rpc('delete_application', { p_id: id });
 
   if (error || !deleted) {

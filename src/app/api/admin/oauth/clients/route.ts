@@ -3,12 +3,13 @@
  * POST: 新規クライアント作成
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { generateRandomString, hashClientSecret } from '@/lib/oauth';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
+  const supabaseAdmin = await createAdminClient();
   
   // 管理者チェック
   const { data: { user } } = await supabase.auth.getUser();
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   const clientSecretHash = await hashClientSecret(clientSecret);
 
   // RPC関数を使用してアプリケーションを作成
-  const { data: application, error } = await supabase
+  const { data: application, error } = await supabaseAdmin
     .rpc('create_application', {
       p_name: name,
       p_client_id: clientId,
