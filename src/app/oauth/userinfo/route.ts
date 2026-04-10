@@ -21,6 +21,10 @@ export async function GET(request: Request) {
   const token = authHeader.substring(7); // "Bearer " を除去
 
   // JWT トークンを検証
+  // clientId を渡さず audience チェックをスキップしている。
+  // UserInfo エンドポイントは全 OAuth クライアント共通のリソースであり、
+  // 有効なアクセストークンを持つ任意のクライアントがアクセスできるのが
+  // OAuth 2.0 の標準的な動作（RFC 6750）のため、これは意図的な設計。
   const payload = verifyAccessToken(token);
 
   if (!payload) {

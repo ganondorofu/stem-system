@@ -11,6 +11,7 @@ import {
   verifyCodeChallenge,
   generateAccessToken,
   createOAuthError,
+  TOKEN_EXPIRY,
 } from '@/lib/oauth';
 import { NextResponse } from 'next/server';
 
@@ -120,6 +121,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // 使用済みコードを削除（RPC経由）
+  // 注意: 認可コードの消費を検証後・トークン生成前に行うことで、
+  // 同一コードによる並行リクエストでの二重トークン発行リスクを軽減する。
+  // 理想的にはDB側で「取得と削除を原子的に行うRPC」を用意すべきだが、
+  // 現状のアプリケーションレベルではこの順序が最善の緩和策。
+  await supabase
+    .rpc('delete_authorization_code', { p_code: code });
+
   // ユーザー情報を取得
   const { data: member } = await supabase
     .from('members')
@@ -147,15 +156,19 @@ export async function POST(request: Request) {
     clientId
   );
 
-  // 使用済みコードを削除（RPC経由）
-  await supabase
-    .rpc('delete_authorization_code', { p_code: code });
-
-  // トークンレスポンスを返す
-  return NextResponse.json({
-    access_token: accessToken,
-    token_type: 'Bearer',
-    expires_in: 3600, // 1時間
-    scope: authCode.scope,
-  });
+  // トークンレスポンスを返す（RFC 6749 §5.1 準拠ヘッダー付き）
+  return NextResponse.json(
+    {
+      access_token: accessToken,
+      token_type: 'Bearer',
+      expires_in: TOKEN_EXPIRY.ACCESS_TOKEN,
+      scope: authCode.scope,
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+        'Pragma': 'no-cache',
+      },
+    }
+  );
 }

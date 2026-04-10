@@ -4,7 +4,7 @@
 
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import {
   generateRandomString,
@@ -22,7 +22,7 @@ export async function handleConsent(formData: FormData) {
   const codeChallengeMethod = formData.get('code_challenge_method') as string;
   const scope = formData.get('scope') as string;
 
-  console.log('[OAuth Consent] Action:', action, 'clientId:', clientId, 'redirectUri:', redirectUri);
+  console.log('[OAuth Consent] Action:', action);
 
   // ユーザーが拒否した場合
   if (action === 'deny') {
@@ -38,9 +38,10 @@ export async function handleConsent(formData: FormData) {
 
   try {
     const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    console.log('[OAuth Consent] getUser:', { hasUser: !!user, error: userError?.message });
+    console.log('[OAuth Consent] getUser:', { hasUser: !!user });
 
     if (!user) {
       redirect('/login');
@@ -50,7 +51,7 @@ export async function handleConsent(formData: FormData) {
     const { data: applications, error: appError } = await supabase
       .rpc('get_application_by_client_id', { p_client_id: clientId });
 
-    console.log('[OAuth Consent] getApp:', { found: !!applications?.[0], error: appError?.message });
+    console.log('[OAuth Consent] getApp:', { found: !!applications?.[0] });
 
     const application = applications?.[0];
 
@@ -63,22 +64,24 @@ export async function handleConsent(formData: FormData) {
       redirect(errorUrl);
     }
 
-    // ユーザー承認を記録（RPC経由）
-    const { error: consentError } = await supabase
+    // ユーザー承認を記録（RPC経由 — RLS バイパスのため Admin クライアント使用）
+    const { error: consentError } = await supabaseAdmin
       .rpc('create_user_consent', {
         p_user_id: user.id,
         p_application_id: application.id,
         p_scope: scope,
       });
 
-    console.log('[OAuth Consent] createConsent:', { error: consentError?.message });
+    if (consentError) {
+      console.error('[OAuth Consent] createConsent failed');
+    }
 
     // 認可コードを生成
     const code = generateRandomString(32);
     const expiresAt = getAuthCodeExpiry();
 
-    // 認可コードをDBに保存（RPC経由）
-    const { error: codeError } = await supabase
+    // 認可コードをDBに保存（RPC経由 — RLS バイパスのため Admin クライアント使用）
+    const { error: codeError } = await supabaseAdmin
       .rpc('create_authorization_code', {
         p_code: code,
         p_application_id: application.id,
@@ -90,10 +93,8 @@ export async function handleConsent(formData: FormData) {
         p_expires_at: expiresAt.toISOString(),
       });
 
-    console.log('[OAuth Consent] createCode:', { error: codeError?.message });
-
     if (codeError) {
-      console.error('[OAuth Consent] Failed to create authorization code:', codeError);
+      console.error('[OAuth Consent] Failed to create authorization code');
       const errorUrl = redirectWithError(
         redirectUri,
         createOAuthError('server_error', 'Failed to generate authorization code'),
@@ -107,8 +108,6 @@ export async function handleConsent(formData: FormData) {
     callbackUrl.searchParams.set('code', code);
     callbackUrl.searchParams.set('state', state);
     finalRedirectUrl = callbackUrl.toString();
-
-    console.log('[OAuth Consent] Redirecting to:', finalRedirectUrl);
   } catch (e) {
     // redirect() は内部的に特殊なエラーを throw するので、それは再 throw する
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') {

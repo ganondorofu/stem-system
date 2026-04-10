@@ -51,9 +51,7 @@ export async function GET(request: NextRequest) {
 
   console.log('[OAuth Authorize] getUser:', {
     hasUser: !!user,
-    userId: user?.id,
     error: authError?.message,
-    cookieNames: request.cookies.getAll().map(c => c.name).join(','),
   });
 
   if (authError || !user) {
@@ -73,7 +71,7 @@ export async function GET(request: NextRequest) {
       maxAge: 600,
       path: '/',
     });
-    console.log('[OAuth Authorize] Redirecting to login, oauth_redirect cookie:', oauthPath.substring(0, 80));
+    console.log('[OAuth Authorize] Redirecting unauthenticated user to login');
     return response;
   }
 

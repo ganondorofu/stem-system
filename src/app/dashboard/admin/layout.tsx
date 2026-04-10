@@ -15,11 +15,26 @@ export default async function AdminLayout({
     redirect('/login');
   }
 
-  const { data: member } = await supabase
+  const { data: member, error: memberError } = await supabase
     .from('members')
     .select('is_admin')
     .eq('supabase_auth_user_id', user.id)
     .single();
+
+  if (memberError) {
+    console.error('Failed to check admin status:', memberError);
+    return (
+        <div className="flex items-center justify-center h-full p-4">
+            <Alert variant="destructive" className="max-w-md">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>エラーが発生しました</AlertTitle>
+                <AlertDescription>
+                権限情報の取得に失敗しました。しばらくしてから再度お試しください。
+                </AlertDescription>
+            </Alert>
+        </div>
+    );
+  }
 
   if (!member || !member.is_admin) {
     return (
