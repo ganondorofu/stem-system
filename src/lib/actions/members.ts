@@ -113,20 +113,10 @@ async function syncDiscordRoles(discordUid: string) {
 }
 
 /**
- * Discord ニックネームをフォーマットする。
- * 在校生: 名前(学籍番号)  卒業生: 名前(第n期卒業生)
+ * Discord ニックネームをBot APIで同期する。
+ * Bot API側でフォーマット（学籍番号・卒業生表記の付与等）を行うため、
+ * この関数には素の名前（姓＋名）を渡すこと。
  */
-function formatDiscordNickname(name: string, status: number, generation: number, studentNumber: string | null): string {
-    if (status === 2) {
-        // OB/OG
-        return `${name}(第${generation}期卒業生)`;
-    }
-    if (studentNumber) {
-        return `${name}(${studentNumber})`;
-    }
-    return name;
-}
-
 async function syncDiscordNickname(discordUid: string, name: string) {
     const apiUrl = process.env.NEXT_PUBLIC_STEM_BOT_API_URL;
     const token = process.env.STEM_BOT_API_BEARER_TOKEN;
@@ -323,8 +313,8 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    const nickname = formatDiscordNickname(fullName, status, finalGeneration!, student_number ?? null);
-    await syncDiscordNickname(user.user_metadata.provider_id, nickname);
+    // Bot APIがニックネームのフォーマット(学籍番号付与等)を行うため、素の名前を送信
+    await syncDiscordNickname(user.user_metadata.provider_id, fullName);
     await syncDiscordRoles(user.user_metadata.provider_id);
 
     revalidatePath('/dashboard', 'layout');
@@ -380,8 +370,8 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
     }
 
     // Re-sync Discord nickname and roles
-    const nickname = formatDiscordNickname(fullName, memberProfile.status, memberProfile.generation, memberProfile.student_number ?? null);
-    await syncDiscordNickname(discordUid, nickname);
+    // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
+    await syncDiscordNickname(discordUid, fullName);
     await syncDiscordRoles(discordUid);
 
     revalidatePath('/dashboard', 'layout');
@@ -425,8 +415,8 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
         // 本名はuser_metadataから取得（Bot APIのニックネームだと二重フォーマットの恐れ）
         const fullName = ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
         if (fullName) {
-            const nickname = formatDiscordNickname(fullName, member.status, member.generation, student_number ?? null);
-            await syncDiscordNickname(member.discord_uid, nickname);
+            // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
+            await syncDiscordNickname(member.discord_uid, fullName);
         }
         await syncDiscordRoles(member.discord_uid);
     }
@@ -487,10 +477,9 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
             if (insertTeamsError) throw new Error(`所属班の更新に失敗: ${insertTeamsError.message}`);
         }
 
-        // 4. Sync with Discord
+        // 4. Sync with Discord — Bot APIがフォーマットを行うため素の名前を送信
         const discordUid = userToUpdate.user.user_metadata.provider_id;
-        const nickname = formatDiscordNickname(fullName, status, generation, student_number ?? null);
-        await syncDiscordNickname(discordUid, nickname);
+        await syncDiscordNickname(discordUid, fullName);
         await syncDiscordRoles(discordUid);
 
         revalidatePath('/dashboard/admin/members');
@@ -768,8 +757,8 @@ export async function renameGraduatesToNewFormat(): Promise<{ error: string | nu
                 console.error(`[renameGraduates] Skipping ${member.discord_uid}: 本名(last_name/first_name)が取得できません。`);
                 continue;
             }
-            const nickname = formatDiscordNickname(fullName, member.status, member.generation, member.student_number ?? null);
-            await syncDiscordNickname(member.discord_uid, nickname);
+            // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
+            await syncDiscordNickname(member.discord_uid, fullName);
             successCount++;
         }
 
