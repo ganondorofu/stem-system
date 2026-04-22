@@ -60,6 +60,44 @@ Server actions call an external Discord bot API (`NEXT_PUBLIC_STEM_BOT_API_URL`)
 - `1` = High School student (高校生)
 - `2` = OB/OG (alumni/卒業生)
 
+### Route Map
+
+```
+src/app/
+  login/                      Discord OAuth login
+  auth/callback/              Supabase OAuth callback (honors `oauth_redirect` httpOnly cookie
+                              to restore original destination for the built-in OAuth flow)
+  dashboard/
+    page.tsx                  Profile (also checks Discord server membership)
+    register/                 Initial member registration
+    settings/apps/            User-facing OAuth consent management
+    admin/{members,teams,oauth,system}/   Admin-only areas
+  oauth/{authorize,token,userinfo}/       Built-in OAuth 2.0 provider
+  api/
+    admin/oauth/clients/      OAuth client CRUD (admin)
+    user/oauth/consents/      User consent revocation
+    auth/debug/               Auth debug
+```
+
+### Environment Variables
+
+Required in `.env`:
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+NEXT_PUBLIC_SITE_URL
+NEXT_PUBLIC_DISCORD_INVITE_URL
+NEXT_PUBLIC_STEM_BOT_API_URL
+STEM_BOT_API_BEARER_TOKEN
+NEXT_PUBLIC_DISCORD_LINKED_ROLE_NAME   # default: "連携済み"
+JWT_SECRET                              # OAuth token signing (HS256)
+```
+
+### CI/CD
+
+`.github/workflows/backup.yml` — daily `pg_dump` at 02:00 JST, GPG AES256 encrypted, pushed to a separate backup repo, prunes >7 days old. Secrets: `SUPABASE_DB_URL`, `GPG_PASSPHRASE`, `BACKUP_REPO_TOKEN`, `BACKUP_REPO`.
+
 ## Conventions
 
 - **UI components**: shadcn/ui (Radix UI + Tailwind CSS) in `src/components/ui/`. Add new components via the shadcn CLI (`npx shadcn@latest add <component>`).

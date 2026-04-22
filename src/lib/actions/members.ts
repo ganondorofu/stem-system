@@ -19,6 +19,11 @@ const profileUpdateSchema = z.object({
     student_number: z.string().regex(/^[0-9]*$/, '学籍番号は半角数字で入力してください。').optional().nullable(),
 });
 
+// Schema for one-time self team assignment (only allowed when user has 0 team relations)
+const setMyTeamsSchema = z.object({
+    team_ids: z.array(z.string().uuid('不正な班IDです。')).min(1, '1つ以上の班を選択してください。'),
+});
+
 
 // Schema for admin updating profile
 const profileAdminUpdateSchema = z.object({
@@ -418,6 +423,102 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
             // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
             await syncDiscordNickname(member.discord_uid, fullName);
         }
+        await syncDiscordRoles(member.discord_uid);
+    }
+
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/dashboard/admin/members');
+    return { error: null };
+}
+
+/**
+ * 登録時に班を選択しなかった部員が、プロフィール画面から自分自身で所属班を
+ * 1度だけ設定するためのアクション。
+ *
+ * 安全性のため:
+ *  - member_id はクライアントから受け取らず、サーバー側で認証ユーザーに固定する。
+ *  - 既存の member_team_relations を一切 delete しない（insertのみ）。
+ *  - 実行前に「自分の member_team_relations が0件」であることをサーバー側で再検証し、
+ *    UI の表示条件と二重化する。
+ *  - admin client を使用（SSR client + RLS では insert が silent fail する既知挙動のため、
+ *    既存の registerNewMember / updateMyProfile と同じパターン）。
+ */
+export async function setMyTeams(values: z.infer<typeof setMyTeamsSchema>) {
+    const supabase = await createClient();
+    const supabaseAdmin = await createAdminClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: '班を設定するにはログインする必要があります。' };
+    }
+
+    const parsedData = setMyTeamsSchema.safeParse(values);
+    if (!parsedData.success) {
+        const firstError = parsedData.error.flatten().fieldErrors;
+        const errorMessage = Object.values(firstError)[0]?.[0] || '無効なデータが提供されました。';
+        return { error: errorMessage };
+    }
+
+    const { team_ids } = parsedData.data;
+
+    // 1. この部員が実在（=登録済みかつ論理削除されていない）ことを確認する。
+    const { data: member, error: memberFetchError } = await supabaseAdmin
+        .from('members')
+        .select('supabase_auth_user_id, discord_uid')
+        .eq('supabase_auth_user_id', user.id)
+        .is('deleted_at', null)
+        .single();
+
+    if (memberFetchError || !member) {
+        return { error: '部員情報が見つかりません。先に部員登録を完了してください。' };
+    }
+
+    // 2. 「1度限り」ガード: 既に所属班がある場合は自己設定不可。admin 経由での変更のみ許可。
+    const { data: existingRelations, error: relationsFetchError } = await supabaseAdmin
+        .from('member_team_relations')
+        .select('team_id')
+        .eq('member_id', user.id);
+
+    if (relationsFetchError) {
+        console.error('Error checking existing team relations:', relationsFetchError);
+        return { error: '所属情報の確認に失敗しました。時間をおいて再度お試しください。' };
+    }
+
+    if (existingRelations && existingRelations.length > 0) {
+        return { error: '既に所属班が設定されています。変更は管理者に依頼してください。' };
+    }
+
+    // 3. 指定された team_ids が teams テーブルに実在することを検証する（不正IDの混入防止）。
+    const uniqueTeamIds = Array.from(new Set(team_ids));
+    const { data: validTeams, error: teamsFetchError } = await supabaseAdmin
+        .from('teams')
+        .select('id')
+        .in('id', uniqueTeamIds);
+
+    if (teamsFetchError) {
+        console.error('Error validating team ids:', teamsFetchError);
+        return { error: '班情報の確認に失敗しました。時間をおいて再度お試しください。' };
+    }
+    if (!validTeams || validTeams.length !== uniqueTeamIds.length) {
+        return { error: '存在しない班が含まれています。画面を再読み込みして再度お試しください。' };
+    }
+
+    // 4. insert のみ実行（delete は行わない = 既存データに対する破壊的操作なし）。
+    const newRelations = uniqueTeamIds.map(team_id => ({
+        member_id: user.id,
+        team_id,
+    }));
+    const { error: insertError } = await supabaseAdmin
+        .from('member_team_relations')
+        .insert(newRelations);
+
+    if (insertError) {
+        console.error('Error inserting member-team relations (setMyTeams):', insertError);
+        return { error: '所属班の登録に失敗しました。時間をおいて再度お試しください。' };
+    }
+
+    // 5. Discord ロール同期は fire-and-forget（既存パターンと同一、失敗してもDBはロールバックしない）。
+    if (member.discord_uid) {
         await syncDiscordRoles(member.discord_uid);
     }
 

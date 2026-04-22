@@ -1,22 +1,25 @@
 "use client";
 
-import type { MemberWithTeams } from '@/lib/types';
+import type { MemberWithTeams, Team } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { User, GraduationCap, School, Building, Shield, Star, Edit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { useEffect, useState } from 'react';
-import { getMemberDisplayName, updateMyProfile } from '@/lib/actions/members';
+import { getMemberDisplayName, setMyTeams, updateMyProfile } from '@/lib/actions/members';
 import { Skeleton } from '../ui/skeleton';
 import { Button } from '../ui/button';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../ui/form';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
+import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,8 +37,15 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
-export function UserProfile({ user }: { user: MemberWithTeams }) {
+const teamsFormSchema = z.object({
+    team_ids: z.array(z.string()).min(1, '1つ以上の班を選択してください。'),
+});
+
+type TeamsFormValues = z.infer<typeof teamsFormSchema>;
+
+export function UserProfile({ user, allTeams = [] }: { user: MemberWithTeams, allTeams?: Team[] }) {
     const { toast } = useToast();
+    const router = useRouter();
     const [displayName, setDisplayName] = useState<string | null>(null);
     const [isLoadingName, setIsLoadingName] = useState(true);
 
@@ -44,6 +54,11 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
         defaultValues: {
             student_number: user.student_number || '',
         },
+    });
+
+    const teamsForm = useForm<TeamsFormValues>({
+        resolver: zodResolver(teamsFormSchema),
+        defaultValues: { team_ids: [] },
     });
 
     useEffect(() => {
@@ -88,6 +103,25 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                 description: '学籍番号を更新しました。',
             });
              form.reset({ student_number: data.student_number });
+        }
+    }
+
+    const canSelfAssignTeams = (user.teams?.length ?? 0) === 0 && allTeams.length > 0;
+
+    const onTeamsSubmit = async (data: TeamsFormValues) => {
+        const result = await setMyTeams({ team_ids: data.team_ids });
+        if (result.error) {
+            toast({
+                title: '班の設定に失敗しました',
+                description: result.error,
+                variant: 'destructive',
+            });
+        } else {
+            toast({
+                title: '所属班を設定しました',
+                description: '以降の変更は管理者に依頼してください。',
+            });
+            router.refresh();
         }
     }
 
@@ -184,7 +218,7 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                     <CardContent>
                          <div className="flex items-start gap-4">
                             <Shield className="w-5 h-5 text-muted-foreground mt-1 flex-shrink-0" />
-                            <div>
+                            <div className="flex-1">
                                 <p className="text-sm text-muted-foreground">所属班</p>
                                 {user.teams && user.teams.length > 0 ? (
                                     <div className="flex flex-wrap gap-2 mt-2">
@@ -197,6 +231,61 @@ export function UserProfile({ user }: { user: MemberWithTeams }) {
                                 )}
                             </div>
                         </div>
+                        {canSelfAssignTeams && (
+                            <>
+                                <Separator className="my-4" />
+                                <Form {...teamsForm}>
+                                    <form onSubmit={teamsForm.handleSubmit(onTeamsSubmit)} className="space-y-4">
+                                        <FormField
+                                            control={teamsForm.control}
+                                            name="team_ids"
+                                            render={() => (
+                                                <FormItem>
+                                                    <div className="mb-2">
+                                                        <FormLabel className="text-base">所属する班を選択</FormLabel>
+                                                        <FormDescription>
+                                                            参加する班をすべて選択してください。<strong>この操作は1度しか行えません。</strong>
+                                                            設定後の変更は管理者に依頼する必要があります。
+                                                        </FormDescription>
+                                                    </div>
+                                                    <ScrollArea className="h-40 w-full rounded-md border">
+                                                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                            {allTeams.map((team) => (
+                                                                <FormField
+                                                                    key={team.id}
+                                                                    control={teamsForm.control}
+                                                                    name="team_ids"
+                                                                    render={({ field }) => (
+                                                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                                            <FormControl>
+                                                                                <Checkbox
+                                                                                    checked={field.value?.includes(team.id)}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        return checked
+                                                                                            ? field.onChange([...(field.value || []), team.id])
+                                                                                            : field.onChange(field.value?.filter((value) => value !== team.id));
+                                                                                    }}
+                                                                                />
+                                                                            </FormControl>
+                                                                            <FormLabel className="font-normal">{team.name}</FormLabel>
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="submit" disabled={teamsForm.formState.isSubmitting}>
+                                            {teamsForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            所属班を確定する
+                                        </Button>
+                                    </form>
+                                </Form>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>

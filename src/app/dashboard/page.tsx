@@ -171,7 +171,21 @@ export default async function DashboardGatePage() {
     const teams: Team[] = teamRelations
         ?.map(r => (r as any).teams)
         .filter(Boolean) || [];
-    
+
+    // 班が未設定の部員のみ、プロフィール画面から1度だけ自己設定できるので、
+    // その場合に限り選択肢として全班一覧を取得する。
+    let allTeams: Team[] = [];
+    if (teams.length === 0) {
+        const { data: allTeamsData, error: allTeamsError } = await supabase
+            .from('teams')
+            .select('*')
+            .order('name');
+        if (allTeamsError) {
+            console.error('Error fetching all teams:', allTeamsError);
+        }
+        allTeams = (allTeamsData as Team[]) || [];
+    }
+
     const profileWithTeams: MemberWithTeams = {
         ...memberProfile,
         teams: teams,
@@ -187,7 +201,7 @@ export default async function DashboardGatePage() {
                     <CardDescription>あなたの登録情報です。この情報は他の部員にも共有されます。</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <UserProfile user={profileWithTeams} />
+                    <UserProfile user={profileWithTeams} allTeams={allTeams} />
                 </CardContent>
             </Card>
         </>

@@ -255,6 +255,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                         <FormLabel className="text-base">所属する班</FormLabel>
                                         <FormDescription>
                                             参加する班をすべて選択してください。（任意）
+                                            選択せずに登録した場合は、後でプロフィール画面から1度だけ自分で設定できます。
                                         </FormDescription>
                                     </div>
                                     <ScrollArea className="h-40 w-full rounded-md border">
@@ -300,14 +301,28 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                             />
 
 
-                            <Button type="submit" disabled={isSubmitting} className="w-full">
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        登録中...
-                                    </>
-                                ) : '登録して始める'}
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button type="submit" disabled={isSubmitting} className="flex-1">
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            登録中...
+                                        </>
+                                    ) : '登録して始める'}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isSubmitting}
+                                    className="flex-1"
+                                    onClick={() => {
+                                        form.setValue('team_ids', [], { shouldDirty: true });
+                                        form.handleSubmit(onSubmit)();
+                                    }}
+                                >
+                                    班を選択せず登録する
+                                </Button>
+                            </div>
                         </form>
                     </Form>
                 </CardContent>
