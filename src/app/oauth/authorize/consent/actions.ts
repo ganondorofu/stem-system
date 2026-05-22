@@ -64,6 +64,16 @@ export async function handleConsent(formData: FormData) {
       redirect(errorUrl);
     }
 
+    // redirect_uri をアプリの許可リストと再照合（フォーム改ざん対策）
+    if (!application.redirect_uris.includes(redirectUri)) {
+      const errorUrl = redirectWithError(
+        application.redirect_uris[0],
+        createOAuthError('invalid_request', 'Invalid redirect_uri'),
+        state
+      );
+      redirect(errorUrl);
+    }
+
     // ユーザー承認を記録（RPC経由 — RLS バイパスのため Admin クライアント使用）
     const { error: consentError } = await supabaseAdmin
       .rpc('create_user_consent', {

@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     {
       sub: authCode.user_id,
       display_name: member.display_name,
-      discord_id: member.discord_id,
+      discord_id: member.discord_uid,
       generation: member.generation,
       status: member.status,
       scope: authCode.scope,

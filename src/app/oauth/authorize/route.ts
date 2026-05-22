@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import { isValidRedirectUri, createOAuthError } from '@/lib/oauth';
+import { isValidRedirectUri, createOAuthError, generateRandomString, getAuthCodeExpiry } from '@/lib/oauth';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -102,7 +102,37 @@ export async function GET(request: NextRequest) {
 
   const existingConsent = hasConsent;
 
-  // 承認画面にパラメータを渡す
+  // 既に承認済みなら認可コードを直発行してリダイレクト
+  if (existingConsent) {
+    const code = generateRandomString(32);
+    const expiresAt = getAuthCodeExpiry();
+
+    const { error: codeError } = await supabase
+      .rpc('create_authorization_code', {
+        p_code: code,
+        p_application_id: application.id,
+        p_user_id: user.id,
+        p_redirect_uri: redirectUri,
+        p_code_challenge: codeChallenge,
+        p_code_challenge_method: codeChallengeMethod,
+        p_scope: scope,
+        p_expires_at: expiresAt.toISOString(),
+      });
+
+    if (codeError) {
+      return new Response(
+        JSON.stringify(createOAuthError('server_error', 'Failed to generate authorization code')),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const callbackUrl = new URL(redirectUri);
+    callbackUrl.searchParams.set('code', code);
+    callbackUrl.searchParams.set('state', state);
+    return NextResponse.redirect(callbackUrl.toString(), { status: 302 });
+  }
+
+  // 未承認：同意画面へ
   const consentUrl = new URL('/oauth/authorize/consent', request.url);
   consentUrl.searchParams.set('client_id', clientId);
   consentUrl.searchParams.set('redirect_uri', redirectUri);
@@ -111,10 +141,6 @@ export async function GET(request: NextRequest) {
   consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
   consentUrl.searchParams.set('scope', scope);
   consentUrl.searchParams.set('app_name', application.name);
-  
-  if (existingConsent) {
-    consentUrl.searchParams.set('already_consented', 'true');
-  }
 
   return NextResponse.redirect(consentUrl, { status: 307 });
 }
