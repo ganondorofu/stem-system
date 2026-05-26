@@ -86,7 +86,7 @@ export function UserProfile({ user, allTeams = [] }: { user: MemberWithTeams, al
       2: { label: "OB/OG", icon: GraduationCap }
     };
     
-    const rawUsername = user.discord_username || user.raw_user_meta_data?.full_name || '不明';
+    const rawUsername = user.discord_username || user.raw_user_meta_data?.full_name || null;
     const { label: statusLabel, icon: StatusIcon } = statusMap[user.status] || { label: "不明", icon: User };
 
     const onSubmit = async (data: ProfileFormValues) => {
@@ -133,7 +133,7 @@ export function UserProfile({ user, allTeams = [] }: { user: MemberWithTeams, al
                     <AvatarFallback className="text-4xl"><User/></AvatarFallback>
                 </Avatar>
                 {isLoadingName ? <Skeleton className="h-8 w-40" /> : <h2 className="text-2xl font-bold font-headline">{displayName}</h2>}
-                <p className="text-muted-foreground text-sm">@{rawUsername}</p>
+                {rawUsername && <p className="text-muted-foreground text-sm">@{rawUsername}</p>}
                 {user.is_admin && <Badge variant="destructive" className="mt-2"><Star className="w-3 h-3 mr-1"/>管理者</Badge>}
             </div>
             <div className="md:col-span-2 space-y-6">
