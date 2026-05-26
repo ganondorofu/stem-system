@@ -5,7 +5,7 @@
  * ユーザーに認可画面を表示し、同意を求める
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { isValidRedirectUri, createOAuthError, generateRandomString, getAuthCodeExpiry } from '@/lib/oauth';
@@ -72,6 +72,32 @@ export async function GET(request: NextRequest) {
       path: '/',
     });
     console.log('[OAuth Authorize] Redirecting unauthenticated user to login');
+    return response;
+  }
+
+  // 部員登録が完了しているか確認
+  const adminSupabase = await createAdminClient();
+  const { data: memberProfile } = await adminSupabase
+    .from('members')
+    .select('supabase_auth_user_id')
+    .eq('supabase_auth_user_id', user.id)
+    .is('deleted_at', null)
+    .single();
+
+  if (!memberProfile) {
+    // 未登録ユーザーは登録ページへ。OAuth redirect を cookie に保存して登録後に戻れるようにする。
+    const requestUrl = new URL(request.url);
+    const oauthPath = `${requestUrl.pathname}${requestUrl.search}`;
+    const registerUrl = new URL('/dashboard/register', request.url);
+    const response = NextResponse.redirect(registerUrl, { status: 307 });
+    response.cookies.set('oauth_redirect', oauthPath, {
+      httpOnly: true,
+      secure: request.url.startsWith('https'),
+      sameSite: 'lax',
+      maxAge: 600,
+      path: '/',
+    });
+    console.log('[OAuth Authorize] Member not registered, redirecting to /dashboard/register');
     return response;
   }
 

@@ -102,8 +102,17 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                 title: 'ようこそ！',
                 description: '部員登録が完了しました。',
             });
+            // OAuth フロー中だった場合は auth/callback 経由で戻る
+            const oauthResumeRes = await fetch('/api/oauth-resume');
+            if (oauthResumeRes.ok) {
+                const { url } = await oauthResumeRes.json();
+                if (url) {
+                    window.location.href = url;
+                    return;
+                }
+            }
             router.push('/dashboard');
-            router.refresh(); 
+            router.refresh();
         }
     }
     
