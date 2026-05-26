@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     .from('members')
     .select(`
       supabase_auth_user_id,
-      display_name,
       discord_uid,
       discord_username,
       generation,
@@ -39,7 +38,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     members?.map((m) => ({
       id: m.supabase_auth_user_id,
-      display_name: m.display_name,
+      display_name: null,
       discord_uid: m.discord_uid,
       discord_username: m.discord_username,
       generation: m.generation,
