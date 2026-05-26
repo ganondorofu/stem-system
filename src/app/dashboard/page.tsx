@@ -186,6 +186,7 @@ export default async function DashboardGatePage() {
         teams: teams,
         raw_user_meta_data: user.user_metadata,
         avatar_url: user.user_metadata.avatar_url,
+        email: user.email ?? null,
     };
 
     return (

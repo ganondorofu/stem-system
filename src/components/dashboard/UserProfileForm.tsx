@@ -75,10 +75,11 @@ export function UserProfile({ user, allTeams = [] }: { user: MemberWithTeams, al
                     setIsLoadingName(false);
                 });
         } else {
-             setDisplayName(user.raw_user_meta_data?.name || '名前不明');
+             const emailPrefix = user.email ? user.email.split('@')[0] : null;
+             setDisplayName(user.raw_user_meta_data?.name || emailPrefix || '名前不明');
              setIsLoadingName(false);
         }
-    }, [user.discord_uid, user.raw_user_meta_data?.name]);
+    }, [user.discord_uid, user.raw_user_meta_data?.name, user.email]);
     
     const statusMap: { [key: number]: { label: string, icon: React.ElementType } } = {
       0: { label: "中学生", icon: School },

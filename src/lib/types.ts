@@ -38,10 +38,11 @@ export type GenerationRole = {
 
 export type MemberWithTeams = Member & {
   teams: Team[];
-   raw_user_meta_data: {
+  raw_user_meta_data: {
     [key: string]: any;
   };
   avatar_url: string | null;
+  email?: string | null;
 };
 
 export type FullUserProfile = Member & {

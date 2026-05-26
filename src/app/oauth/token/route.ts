@@ -143,11 +143,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // メールユーザーの場合はメールアドレスの@前を表示名として使う
+  const { data: authUserData } = await supabase.auth.admin.getUserById(authCode.user_id);
+  const emailPrefix = authUserData?.user?.email ? authUserData.user.email.split('@')[0] : null;
+  const displayName = member.discord_username || emailPrefix || null;
+
   // JWT アクセストークンを生成
   const accessToken = generateAccessToken(
     {
       sub: authCode.user_id,
-      display_name: member.display_name,
+      display_name: displayName,
       discord_id: member.discord_uid,
       generation: member.generation,
       status: member.status,
