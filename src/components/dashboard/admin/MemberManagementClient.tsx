@@ -880,13 +880,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
     const member = row.original;
     
     const discordUsername = (member.discord_username || member.raw_user_meta_data?.full_name || '').toLowerCase();
-    const discordUid = member.discord_uid.toLowerCase();
+    const discordUid = (member.discord_uid || '').toLowerCase();
     const studentNumber = member.student_number || '';
     const email = member.email || '';
     
     let realName = '';
     if (showRealName && namesLoaded) {
-      realName = (memberNames[member.discord_uid] || '').toLowerCase();
+      realName = (member.discord_uid ? memberNames[member.discord_uid] || '' : '').toLowerCase();
     }
 
     return discordUsername.includes(searchTerm) ||

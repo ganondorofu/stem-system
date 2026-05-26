@@ -100,7 +100,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
         } else {
             toast({
                 title: 'ようこそ！',
-                description: '部員登録が完了しました。Discordの情報が同期されます。',
+                description: '部員登録が完了しました。',
             });
             router.push('/dashboard');
             router.refresh(); 
@@ -151,7 +151,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                     )}
                                 />
                             </div>
-                            <FormDescription>Discordのニックネームにも使用されます。姓名は全角で入力してください。</FormDescription>
+                            <FormDescription>姓名は全角で入力してください。</FormDescription>
 
                              <FormField
                                 control={form.control}
@@ -209,7 +209,7 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                                                 <FormControl>
                                                     <Input placeholder="あなたの学籍番号" {...field} value={field.value ?? ''} />
                                                 </FormControl>
-                                                <FormDescription>Discordのニックネームに使用されます。半角数字のみ入力してください。</FormDescription>
+                                                <FormDescription>半角数字のみ入力してください。</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

@@ -3,9 +3,10 @@
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Club } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 
 const DiscordIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-discord mr-2" viewBox="0 0 16 16">
@@ -19,32 +20,48 @@ function LoginPage() {
   const error = searchParams.get('error');
   const redirect = searchParams.get('redirect');
 
-  const handleLogin = async () => {
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getCallbackUrl = () => {
     if (redirect) {
-      // OAuth フローの場合：リダイレクト先をクライアント側 Cookie にも保存
-      // （httpOnly cookie や next param が消える場合のフォールバック）
-      // redirect は絶対URLの可能性があるので、パス+クエリのみ抽出して保存
       let redirectPath = redirect;
       try {
         const parsed = new URL(redirect);
         redirectPath = `${parsed.pathname}${parsed.search}`;
-      } catch {
-        // 相対パスの場合はそのまま
-      }
+      } catch {}
       document.cookie = `oauth_redirect_client=${encodeURIComponent(redirectPath)};path=/;max-age=600;samesite=lax`;
     }
+    return `${window.location.origin}/auth/callback`;
+  };
 
-    // Supabase の redirectTo にはシンプルな callback URL のみ渡す。
-    // OAuth リダイレクト先は httpOnly cookie と client cookie で保持する。
-    // GoTrue が query parameter を消す可能性があるため、next param は使わない。
-    const callbackUrl = `${window.location.origin}/auth/callback`;
-
+  const handleDiscordLogin = async () => {
+    const callbackUrl = getCallbackUrl();
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
-      options: {
-        redirectTo: callbackUrl,
-      },
+      options: { redirectTo: callbackUrl },
     });
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    setEmailError('');
+    const callbackUrl = getCallbackUrl();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: callbackUrl },
+    });
+    setLoading(false);
+    if (error) {
+      setEmailError(error.message);
+    } else {
+      setEmailSent(true);
+    }
   };
 
   return (
@@ -57,12 +74,64 @@ function LoginPage() {
           <CardTitle className="text-3xl font-bold font-headline">STEM研究部</CardTitle>
           <CardDescription>部活動管理システム</CardDescription>
         </CardHeader>
-        <CardContent>
-          {error && <p className="text-destructive text-center text-sm mb-4">{error === 'Could not authenticate user' ? 'ユーザー認証に失敗しました。' : error}</p>}
-          <Button onClick={handleLogin} className="w-full text-lg py-6" size="lg">
-            <DiscordIcon />
-            Discordでログイン
-          </Button>
+        <CardContent className="flex flex-col gap-3">
+          {error && (
+            <p className="text-destructive text-center text-sm">
+              {error === 'Could not authenticate user' ? 'ユーザー認証に失敗しました。' : error}
+            </p>
+          )}
+
+          {!showEmailForm ? (
+            <>
+              <Button onClick={handleDiscordLogin} className="w-full text-lg py-6" size="lg">
+                <DiscordIcon />
+                Discordでログイン
+              </Button>
+              <button
+                onClick={() => setShowEmailForm(true)}
+                className="text-xs text-muted-foreground hover:underline text-center mt-1"
+              >
+                Discordを作れない方はこちら
+              </button>
+            </>
+          ) : emailSent ? (
+            <div className="text-center space-y-3">
+              <p className="text-sm font-medium">メールを送信しました</p>
+              <p className="text-xs text-muted-foreground">
+                {email} にログインリンクを送りました。メールを確認してください。
+              </p>
+              <button
+                onClick={() => { setEmailSent(false); setShowEmailForm(false); setEmail(''); }}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                戻る
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+              <p className="text-sm text-center text-muted-foreground">
+                メールアドレスにログインリンクを送ります
+              </p>
+              <Input
+                type="email"
+                placeholder="メールアドレス"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              {emailError && <p className="text-destructive text-xs text-center">{emailError}</p>}
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? '送信中...' : 'ログインリンクを送る'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setShowEmailForm(false); setEmailError(''); }}
+                className="text-xs text-muted-foreground hover:underline text-center"
+              >
+                Discordでログインに戻る
+              </button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

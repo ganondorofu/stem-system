@@ -148,8 +148,8 @@ export function TeamManagementClient({
           const teamLeaders = getLeaders(team.id);
           const memberOptions = teamMembers.map(m => ({
             value: m.supabase_auth_user_id,
-            label: m.displayName || m.discord_uid,
-            id: m.discord_uid,
+            label: m.displayName || m.discord_uid || m.supabase_auth_user_id,
+            id: m.discord_uid || m.supabase_auth_user_id,
             avatar: m.avatar_url
           }));
           const leaderIds = teamLeaders.map(l => l.supabase_auth_user_id);

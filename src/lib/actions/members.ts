@@ -280,12 +280,13 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
     await ensureGenerationRoleExists(finalGeneration);
 
     const discordUsername = user.user_metadata.full_name || null;
+    const discordUid = user.user_metadata.provider_id || null;
 
     const { error: memberInsertError, data: newMember } = await supabaseAdmin.from('members').insert({
         supabase_auth_user_id: user.id,
-        discord_uid: user.user_metadata.provider_id,
+        discord_uid: discordUid,
         discord_username: discordUsername,
-        avatar_url: user.user_metadata.avatar_url,
+        avatar_url: user.user_metadata.avatar_url || null,
         is_admin: false,
         status,
         student_number,
@@ -318,9 +319,11 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         }
     }
 
-    // Bot APIがニックネームのフォーマット(学籍番号付与等)を行うため、素の名前を送信
-    await syncDiscordNickname(user.user_metadata.provider_id, fullName);
-    await syncDiscordRoles(user.user_metadata.provider_id);
+    // Discord ユーザーのみ bot sync を実行
+    if (discordUid) {
+        await syncDiscordNickname(discordUid, fullName);
+        await syncDiscordRoles(discordUid);
+    }
 
     revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard/admin/members');
@@ -684,7 +687,7 @@ export async function updateMemberTeams(memberId: string, teamIds: string[]): Pr
         }
 
         const { data: member } = await supabase.from('members').select('discord_uid').eq('supabase_auth_user_id', memberId).single();
-        if (member) {
+        if (member?.discord_uid) {
             await syncDiscordRoles(member.discord_uid);
         }
 
