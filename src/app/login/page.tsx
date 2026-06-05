@@ -20,10 +20,17 @@ function LoginPage() {
   const error = searchParams.get('error');
   const redirect = searchParams.get('redirect');
 
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [email, setEmail] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  // ユーザーID + パスワード方式（Discordを作れない中学生向け）
+  // 内部的に {ID}@stem.local の合成メールとして Supabase Auth に登録する。
+  // メール送信は一切行わないため、Supabase 側で "Confirm email" を OFF にすること。
+  const ID_EMAIL_DOMAIN = 'stem.local';
+  const idToEmail = (id: string) => `${id.trim().toLowerCase()}@${ID_EMAIL_DOMAIN}`;
+
+  const [showIdForm, setShowIdForm] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
+  const [idError, setIdError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const getCallbackUrl = () => {
@@ -38,6 +45,16 @@ function LoginPage() {
     return `${window.location.origin}/auth/callback`;
   };
 
+  const getRedirectPath = () => {
+    if (!redirect) return '/dashboard';
+    try {
+      const parsed = new URL(redirect);
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return redirect.startsWith('/') ? redirect : '/dashboard';
+    }
+  };
+
   const handleDiscordLogin = async () => {
     const callbackUrl = getCallbackUrl();
     await supabase.auth.signInWithOAuth({
@@ -46,22 +63,37 @@ function LoginPage() {
     });
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleIdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    setLoading(true);
-    setEmailError('');
-    const callbackUrl = getCallbackUrl();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: callbackUrl },
-    });
-    setLoading(false);
-    if (error) {
-      setEmailError(error.message);
-    } else {
-      setEmailSent(true);
+    const id = userId.trim();
+    if (!id || !password) return;
+    if (!/^[a-zA-Z0-9_-]{3,}$/.test(id)) {
+      setIdError('IDは英数字・ハイフン・アンダースコア3文字以上で入力してください。');
+      return;
     }
+    if (isSignup && password.length < 6) {
+      setIdError('パスワードは6文字以上にしてください。');
+      return;
+    }
+    setLoading(true);
+    setIdError('');
+    const email = idToEmail(id);
+    const { error } = isSignup
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setLoading(false);
+      if (isSignup && /already registered/i.test(error.message)) {
+        setIdError('このIDは既に使われています。');
+      } else if (!isSignup && /invalid login credentials/i.test(error.message)) {
+        setIdError('IDまたはパスワードが違います。');
+      } else {
+        setIdError(error.message);
+      }
+      return;
+    }
+    // パスワード方式はコールバック不要。直接リダイレクト先へ。
+    window.location.href = getRedirectPath();
   };
 
   return (
@@ -81,51 +113,54 @@ function LoginPage() {
             </p>
           )}
 
-          {!showEmailForm ? (
+          {!showIdForm ? (
             <>
               <Button onClick={handleDiscordLogin} className="w-full text-lg py-6" size="lg">
                 <DiscordIcon />
                 Discordでログイン
               </Button>
               <button
-                onClick={() => setShowEmailForm(true)}
+                onClick={() => setShowIdForm(true)}
                 className="text-xs text-muted-foreground hover:underline text-center mt-1"
               >
                 Discordを作れない方はこちら
               </button>
             </>
-          ) : emailSent ? (
-            <div className="text-center space-y-3">
-              <p className="text-sm font-medium">メールを送信しました</p>
-              <p className="text-xs text-muted-foreground">
-                {email} にログインリンクを送りました。メールを確認してください。
-              </p>
-              <button
-                onClick={() => { setEmailSent(false); setShowEmailForm(false); setEmail(''); }}
-                className="text-xs text-muted-foreground hover:underline"
-              >
-                戻る
-              </button>
-            </div>
           ) : (
-            <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+            <form onSubmit={handleIdSubmit} className="flex flex-col gap-3">
               <p className="text-sm text-center text-muted-foreground">
-                メールアドレスにログインリンクを送ります
+                {isSignup ? 'ユーザーIDとパスワードを決めて登録します' : 'ユーザーIDでログイン'}
               </p>
               <Input
-                type="email"
-                placeholder="メールアドレス"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="ユーザーID"
+                autoComplete="username"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
                 required
               />
-              {emailError && <p className="text-destructive text-xs text-center">{emailError}</p>}
+              <Input
+                type="password"
+                placeholder="パスワード"
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {idError && <p className="text-destructive text-xs text-center">{idError}</p>}
               <Button type="submit" disabled={loading} className="w-full">
-                {loading ? '送信中...' : 'ログインリンクを送る'}
+                {loading ? '処理中...' : isSignup ? '新規登録' : 'ログイン'}
               </Button>
               <button
                 type="button"
-                onClick={() => { setShowEmailForm(false); setEmailError(''); }}
+                onClick={() => { setIsSignup(!isSignup); setIdError(''); }}
+                className="text-xs text-muted-foreground hover:underline text-center"
+              >
+                {isSignup ? 'すでにIDを持っている方はログイン' : 'IDを持っていない方は新規登録'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowIdForm(false); setIdError(''); }}
                 className="text-xs text-muted-foreground hover:underline text-center"
               >
                 Discordでログインに戻る
