@@ -76,6 +76,7 @@ export interface JWTPayload {
   discord_id: string;
   generation: number;
   status: number;
+  is_admin: boolean;
   scope: string;
 }
 
@@ -105,7 +106,6 @@ export function verifyAccessToken(token: string, clientId?: string): JWTPayload 
   try {
     const decoded = jwt.verify(token, getJwtSecret(), {
       algorithms: ['HS256'],
-      issuer: JWT_ISSUER,
       audience: clientId,
     }) as JWTPayload & { iat: number; exp: number; iss: string; aud: string };
 
@@ -115,6 +115,7 @@ export function verifyAccessToken(token: string, clientId?: string): JWTPayload 
       discord_id: decoded.discord_id,
       generation: decoded.generation,
       status: decoded.status,
+      is_admin: decoded.is_admin ?? false,
       scope: decoded.scope,
     };
   } catch (error) {
