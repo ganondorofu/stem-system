@@ -26,9 +26,10 @@ const setMyTeamsSchema = z.object({
 
 
 // Schema for admin updating profile
+// 本名はDBに保存しないため姓名は任意（Discordユーザーのニックネーム同期にのみ使用）
 const profileAdminUpdateSchema = z.object({
-    last_name: z.string().min(1, '姓は必須です。'),
-    first_name: z.string().min(1, '名は必須です。'),
+    last_name: z.string().optional().default(''),
+    first_name: z.string().optional().default(''),
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
     student_number: z.string().optional().nullable(),
     status: z.coerce.number().int().min(0).max(2),
@@ -36,9 +37,10 @@ const profileAdminUpdateSchema = z.object({
 });
 
 // Schema for initial registration
+// 本名はDBに保存しないため姓名は任意（Discordユーザーはニックネーム同期に使用、IDユーザーはユーザーIDが名前）
 const registerSchema = z.object({
-    last_name: z.string().min(1, '姓は必須です。'),
-    first_name: z.string().min(1, '名は必須です。'),
+    last_name: z.string().optional().default(''),
+    first_name: z.string().optional().default(''),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
@@ -298,16 +300,9 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
         return { error: '部員情報の作成に失敗しました。' };
     }
 
-    // Update user_metadata with name
-    const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        { user_metadata: { ...user.user_metadata, last_name, first_name, name: fullName } }
-    );
-     if (userUpdateError) {
-        console.error('Error updating user metadata:', userUpdateError);
-        // We don't return an error here, as the primary registration was successful
-    }
-    
+    // 本名はDBに保存しない。高校生(Discord)は本名をDiscordニックネームへ同期し、
+    // 以降の本名取得は全てbot経由で行う。中学生(ID)はユーザーID(=email prefix)を名前として使う。
+
     if (team_ids && team_ids.length > 0) {
         const relations = team_ids.map(team_id => ({
             member_id: newMember.supabase_auth_user_id,
@@ -321,7 +316,9 @@ export async function registerNewMember(values: z.infer<typeof registerSchema>) 
 
     // Discord ユーザーのみ bot sync を実行
     if (discordUid) {
-        await syncDiscordNickname(discordUid, fullName);
+        if (fullName) {
+            await syncDiscordNickname(discordUid, fullName);
+        }
         await syncDiscordRoles(discordUid);
     }
 
@@ -366,17 +363,8 @@ export async function resyncDiscordMember(values: z.infer<typeof reSyncSchema>) 
     if (!memberProfile) {
         return { error: 'メンバー情報が見つかりません。新規登録が必要です。' };
     }
-    
-    // Update user_metadata with name
-    const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        { user_metadata: { ...user.user_metadata, last_name, first_name, name: fullName } }
-    );
-     if (userUpdateError) {
-        console.error('Error updating user metadata during resync:', userUpdateError);
-        return { error: 'ユーザー情報の更新に失敗しました。' };
-    }
 
+    // 本名はDBに保存しない。入力された氏名はDiscordニックネームへの同期にのみ使用する。
     // Re-sync Discord nickname and roles
     // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
     await syncDiscordNickname(discordUid, fullName);
@@ -420,8 +408,8 @@ export async function updateMyProfile(values: z.infer<typeof profileUpdateSchema
         .single();
 
     if (member?.discord_uid) {
-        // 本名はuser_metadataから取得（Bot APIのニックネームだと二重フォーマットの恐れ）
-        const fullName = ((user.user_metadata?.last_name ?? '') + (user.user_metadata?.first_name ?? '')).replace(/\s/g, '');
+        // 本名はDBに保存しないため、生の名前(name_only)をbot経由で取得して再整形する
+        const fullName = await getMemberDisplayName(member.discord_uid);
         if (fullName) {
             // Bot APIがニックネームのフォーマットを行うため、素の名前を送信
             await syncDiscordNickname(member.discord_uid, fullName);
@@ -546,16 +534,10 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
 
         const { last_name, first_name, generation, student_number, status, team_ids } = parsedData.data;
 
-        // 1. Update user metadata (name)
+        // 1. 本名はDBに保存しない。入力された氏名はDiscordニックネーム同期にのみ使用する。
         const fullName = (last_name + first_name).replace(/\s/g, '');
         const { data: userToUpdate, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
         if (getUserError) throw new Error(`ユーザー情報の取得に失敗: ${getUserError.message}`);
-
-        const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-            userId,
-            { user_metadata: { ...userToUpdate.user.user_metadata, last_name, first_name, name: fullName } }
-        );
-        if (userUpdateError) throw new Error(`ユーザーメタデータの更新に失敗: ${userUpdateError.message}`);
 
         // 2. Update member table (generation, status, student_number)
         await ensureGenerationRoleExists(generation);
@@ -582,9 +564,15 @@ export async function updateMemberAdmin(userId: string, values: z.infer<typeof p
         }
 
         // 4. Sync with Discord — Bot APIがフォーマットを行うため素の名前を送信
+        // 中学生(ID)などDiscord未連携ユーザーは同期しない
         const discordUid = userToUpdate.user.user_metadata.provider_id;
-        await syncDiscordNickname(discordUid, fullName);
-        await syncDiscordRoles(discordUid);
+        if (discordUid) {
+            // 氏名入力がある場合のみニックネームを更新（空なら既存ニックネームを維持）
+            if (fullName) {
+                await syncDiscordNickname(discordUid, fullName);
+            }
+            await syncDiscordRoles(discordUid);
+        }
 
         revalidatePath('/dashboard/admin/members');
         return { error: null };

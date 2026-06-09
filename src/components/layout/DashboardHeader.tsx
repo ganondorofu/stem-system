@@ -20,7 +20,9 @@ const navItems = [
 export default function DashboardHeader({ user }: { user: FullUserProfile | null }) {
   const pathname = usePathname();
   const supabase = createClient();
-  const displayName = user?.discord_username || user?.raw_user_meta_data?.full_name || user?.raw_user_meta_data?.name || '名無しさん';
+  // 中学生(ID)はユーザーID(email prefix)を表示名にする
+  const idName = user?.raw_user_meta_data?.email?.split('@')[0] || null;
+  const displayName = user?.discord_username || user?.raw_user_meta_data?.full_name || idName || '名無しさん';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

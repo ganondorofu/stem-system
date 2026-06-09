@@ -14,5 +14,9 @@ async function getTeams(): Promise<Team[]> {
 
 export default async function RegisterPage() {
     const teams = await getTeams();
-    return <RegisterForm teams={teams} />;
+    // Discord連携ユーザーか判定（IDログイン=中学生は姓名入力不要・ユーザーIDが名前）
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const isDiscord = !!user?.user_metadata?.provider_id;
+    return <RegisterForm teams={teams} isDiscord={isDiscord} />;
 }

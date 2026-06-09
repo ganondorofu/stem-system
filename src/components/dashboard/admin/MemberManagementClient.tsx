@@ -81,9 +81,10 @@ import { cn } from "@/lib/utils"
 
 type MemberNameMap = { [key: string]: string };
 
+// 本名はDBに保存しない。姓名はDiscordユーザーのニックネーム更新用で任意（空なら維持）。
 const profileSchema = z.object({
-    last_name: z.string().min(1, '姓は必須です。'),
-    first_name: z.string().min(1, '名は必須です。'),
+    last_name: z.string().optional().default(''),
+    first_name: z.string().optional().default(''),
     status: z.coerce.number().int().min(0).max(2),
     student_number: z.string().optional().nullable(),
     generation: z.coerce.number().int().min(0, '期は0以上の数字である必要があります。'),
@@ -108,7 +109,9 @@ function ProfileDialog({ member, isOpen, onOpenChange }: { member: MemberWithTea
           setIsLoading(false);
         });
     } else if (isOpen && member) {
-        setDisplayName(member.raw_user_meta_data?.name || '名前不明');
+        // Discord未連携(中学生など)はユーザーID(email prefix)を表示
+        const userId = member.email ? member.email.split('@')[0] : null;
+        setDisplayName(userId || '名前不明');
         setIsLoading(false);
     }
   }, [isOpen, member]);
@@ -233,13 +236,20 @@ function EditProfileDialog({
     React.useEffect(() => {
         if (member) {
             form.reset({
-                last_name: member.raw_user_meta_data.last_name || '',
-                first_name: member.raw_user_meta_data.first_name || '',
+                // 本名はDBに無いため空。Discordユーザーは下でbotから現在名を取得して補完する。
+                last_name: '',
+                first_name: '',
                 status: member.status,
                 student_number: member.student_number,
                 generation: member.generation,
                 team_ids: member.teams.map(t => t.id),
             });
+            // Discordユーザーは現在のニックネーム(本名)をbotから取得して姓欄に入れておく
+            if (member.discord_uid) {
+                getMemberDisplayName(member.discord_uid)
+                    .then(name => { if (name) form.setValue('last_name', name); })
+                    .catch(() => {});
+            }
         }
     }, [member, form]);
     
@@ -276,7 +286,7 @@ function EditProfileDialog({
                 <DialogHeader>
                     <DialogTitle>プロフィールを編集</DialogTitle>
                     <DialogDescription>
-                        {member?.raw_user_meta_data.name}さんの情報を編集します。
+                        メンバー情報を編集します。
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -711,17 +721,13 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
 
 
   const handleProfileUpdate = (updatedMember: Partial<MemberWithTeamsAndRelations>, updatedTeams: Team[]) => {
+    // 本名はDBに保存しないため、ここでの氏名のローカル反映は不要
     setMembers(members.map(m => {
         if (m.supabase_auth_user_id === updatedMember.supabase_auth_user_id) {
-            const newRawUserData = { ...m.raw_user_meta_data };
-            if (updatedMember.last_name) newRawUserData.last_name = updatedMember.last_name;
-            if (updatedMember.first_name) newRawUserData.first_name = updatedMember.first_name;
-            
             return {
                 ...m,
                 ...updatedMember,
                 teams: updatedTeams,
-                raw_user_meta_data: newRawUserData
             };
         }
         return m;
@@ -731,7 +737,24 @@ export function MemberManagementClient({ initialMembers, allTeams }: { initialMe
   const DisplayNameCell = ({ row }: { row: any }) => {
     const member = row.original as MemberWithTeamsAndRelations;
     const discordUid = member.discord_uid;
-    
+
+    // Discord未連携(中学生など)はユーザーID(email prefix)を名前として表示する
+    if (!discordUid) {
+      const userId = member.email ? member.email.split('@')[0] : '名前不明';
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarImage src={member.avatar_url || ''} />
+            <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="font-medium">{userId}</span>
+            <span className="text-xs text-muted-foreground font-mono">IDログイン</span>
+          </div>
+        </div>
+      );
+    }
+
     const discordUsername = member.discord_username || member.raw_user_meta_data?.full_name || '不明';
 
     const realName = memberNames[discordUid];

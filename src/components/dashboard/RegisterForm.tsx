@@ -20,9 +20,11 @@ import { ScrollArea } from '../ui/scroll-area';
 
 const studentNumberRegex = /^[0-9]+$/;
 
+// 本名はDBに保存しない。Discordユーザーはニックネーム同期用に姓名を入力するが、
+// IDユーザー(中学生)はユーザーIDが名前になるため姓名は任意。
 const registerSchema = z.object({
-    last_name: z.string().min(1, '姓は必須です。'),
-    first_name: z.string().min(1, '名は必須です。'),
+    last_name: z.string().optional().default(''),
+    first_name: z.string().optional().default(''),
     status: z.coerce.number().int().min(0).max(2),
     grade: z.coerce.number().int().min(1).max(3).optional(),
     student_number: z.string().regex(studentNumberRegex, '学籍番号は半角数字で入力してください。').optional().nullable(),
@@ -63,14 +65,24 @@ function calculateGeneration(status: number, grade: number, academicYear: number
     return null;
 }
 
-export function RegisterForm({ teams }: { teams: Team[] }) {
+export function RegisterForm({ teams, isDiscord = true }: { teams: Team[]; isDiscord?: boolean }) {
     const { toast } = useToast();
     const router = useRouter();
     const academicYear = getAcademicYear();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Discordユーザーのみ姓名を必須にする（ニックネーム同期用）
+    const formSchema = useMemo(
+        () =>
+            registerSchema.refine(
+                (data) => !isDiscord || (!!data.last_name && !!data.first_name),
+                { message: '姓名は必須です。', path: ['last_name'] }
+            ),
+        [isDiscord]
+    );
+
     const form = useForm<z.infer<typeof registerSchema>>({
-        resolver: zodResolver(registerSchema),
+        resolver: zodResolver(formSchema),
         defaultValues: {
             status: 1, // Default to High School
             team_ids: [],
@@ -132,35 +144,39 @@ export function RegisterForm({ teams }: { teams: Team[] }) {
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="last_name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>姓</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="例: 山田" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="first_name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>名</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="例: 太郎" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <FormDescription>姓名は全角で入力してください。</FormDescription>
+                            {isDiscord && (
+                                <>
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="last_name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>姓</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="例: 山田" {...field} value={field.value ?? ''} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="first_name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>名</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="例: 太郎" {...field} value={field.value ?? ''} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <FormDescription>姓名は全角で入力してください。Discordのニックネームに使用され、システムには保存されません。</FormDescription>
+                                </>
+                            )}
 
                              <FormField
                                 control={form.control}
